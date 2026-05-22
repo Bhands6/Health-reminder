@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# PyInstaller build artifacts
+build/
+dist/
+
+# Debug screenshots
+*.png
+
+# Stats (runtime data)
+stats.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
