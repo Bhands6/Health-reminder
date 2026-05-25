@@ -10,17 +10,19 @@ import json
 import os
 import math
 import time
+import winreg
 from datetime import datetime, timedelta
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QMenu, QAction, QSystemTrayIcon, QDialog, QFormLayout,
     QSpinBox, QCheckBox, QPushButton, QMessageBox, QLineEdit,
     QInputDialog, QScrollArea, QGroupBox, QGraphicsDropShadowEffect,
-    QDesktopWidget, QShortcut, QWidgetAction, QSlider
+    QDesktopWidget, QShortcut, QWidgetAction, QSlider, QColorDialog
 )
 from PyQt5.QtCore import (
     Qt, QTimer, QPoint, QPropertyAnimation, QEasingCurve,
-    QRect, pyqtSignal, QThread, QSize
+    QRect, pyqtSignal, QThread, QSize, QObject, QEvent,
+    pyqtProperty
 )
 from PyQt5.QtGui import (
     QColor, QPainter, QFont, QIcon, QLinearGradient, QBrush,
@@ -40,6 +42,8 @@ except ImportError:
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 CHECK_ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "checkmark.png")
+ARROW_UP_ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "arrow_up.svg")
+ARROW_DOWN_ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "arrow_down.svg")
 STATS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stats.json")
 
 # 默认配置
@@ -55,6 +59,9 @@ DEFAULT_CONFIG = {
     "dnd_end": "08:00",
     "mini_mode": False,
     "widget_size": 80,
+    "theme": "light",
+    "gradient_start": None,
+    "gradient_end": None,
 }
 
 # 内置提醒配置
@@ -78,19 +85,51 @@ ICON_CHOICES = [
 ]
 
 # 主题色彩
-THEME = {
-    "primary": (102, 126, 234),
-    "secondary": (118, 75, 162),
-    "accent": (72, 209, 204),
-    "bg_start": (102, 126, 234),
-    "bg_end": (118, 75, 162),
-    "card_bg": (255, 255, 255, 30),
-    "text": (255, 255, 255),
-    "text_secondary": (255, 255, 255, 180),
-    "success": (76, 175, 80),
-    "warning": (255, 152, 0),
-    "danger": (244, 67, 54),
+THEME_PRESETS = {
+    "light": {
+        "primary": (102, 126, 234),
+        "secondary": (118, 75, 162),
+        "accent": (72, 209, 204),
+        "bg_start": (102, 126, 234),
+        "bg_end": (118, 75, 162),
+        "card_bg": (255, 255, 255, 30),
+        "text": (255, 255, 255),
+        "text_secondary": (255, 255, 255, 180),
+        "success": (76, 175, 80),
+        "warning": (255, 152, 0),
+        "danger": (244, 67, 54),
+    },
+    "dark": {
+        "primary": (80, 90, 160),
+        "secondary": (60, 60, 90),
+        "accent": (50, 140, 135),
+        "bg_start": (15, 15, 25),
+        "bg_end": (20, 20, 35),
+        "card_bg": (255, 255, 255, 15),
+        "text": (200, 200, 220),
+        "text_secondary": (150, 150, 170),
+        "success": (76, 175, 80),
+        "warning": (255, 152, 0),
+        "danger": (244, 67, 54),
+    },
 }
+THEME = dict(THEME_PRESETS["dark"])
+
+
+def apply_theme(theme_name):
+    """切换全局主题"""
+    global THEME
+    THEME = dict(THEME_PRESETS.get(theme_name, THEME_PRESETS["dark"]))
+
+
+def apply_gradient_colors(config):
+    """将自定义渐变颜色覆盖到全局 THEME"""
+    gs = config.get("gradient_start")
+    ge = config.get("gradient_end")
+    if gs and len(gs) == 3:
+        THEME["primary"] = tuple(gs)
+    if ge and len(ge) == 3:
+        THEME["secondary"] = tuple(ge)
 
 # 提示音频率 (Hz) 和持续时间 (ms)
 SOUND_PROFILES = {
@@ -124,6 +163,25 @@ def create_checkmark_icon():
     painter.drawPath(path)
     painter.end()
     pixmap.save(CHECK_ICON)
+
+
+def create_arrow_icons():
+    """生成上下箭头 SVG 图标"""
+    svg_up = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6" viewBox="0 0 8 6">'
+        '<polygon points="4,0 0,6 8,6" fill="#c8b4ff" fill-opacity="0.85"/>'
+        '</svg>'
+    )
+    svg_down = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6" viewBox="0 0 8 6">'
+        '<polygon points="4,6 0,0 8,0" fill="#c8b4ff" fill-opacity="0.85"/>'
+        '</svg>'
+    )
+    for path, content in [(ARROW_UP_ICON, svg_up), (ARROW_DOWN_ICON, svg_down)]:
+        if os.path.exists(path):
+            os.remove(path)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
 
 
 def load_config():
@@ -181,6 +239,29 @@ def get_today_stats():
     stats = load_stats()
     today = datetime.now().strftime("%Y-%m-%d")
     return stats.get(today, {})
+
+
+def set_autostart(enable):
+    """设置开机自启动（写入/删除注册表）"""
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_name = "HealthReminder"
+    script = os.path.abspath(sys.argv[0])
+    if script.endswith(".py"):
+        value = f'"{sys.executable}" "{script}"'
+    else:
+        value = f'"{script}"'
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+        if enable:
+            winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, value)
+        else:
+            try:
+                winreg.DeleteValue(key, app_name)
+            except FileNotFoundError:
+                pass
+        winreg.CloseKey(key)
+    except Exception:
+        pass
 
 
 def play_reminder_sound(key):
@@ -294,7 +375,7 @@ class ReminderPopup(QWidget):
     def _create_buttons(self):
         """创建贪睡和关闭按钮"""
         # 贪睡按钮
-        self.snooze_btn = QPushButton("💤 贪睡 5 分钟", self)
+        self.snooze_btn = QPushButton("💤 延迟 5 分钟", self)
         self.snooze_btn.setGeometry(self.width() - 180, self.height() - 55, 120, 32)
         self.snooze_btn.setStyleSheet("""
             QPushButton {
@@ -399,45 +480,51 @@ class CustomReminderDialog(QDialog):
         self.setMinimumSize(380, 280)
         self.resize(420, 320)
 
-        self.setStyleSheet("""
-            QDialog {
+        p = THEME.get("primary", (102, 126, 234))
+        s = THEME.get("secondary", (118, 75, 162))
+        self.setStyleSheet(f"""
+            QDialog {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483);
-            }
-            QLabel { color: rgba(200,180,255,0.9); font-size: 13px; }
-            QLineEdit, QSpinBox {
+            }}
+            QLabel {{ color: rgba(200,180,255,0.9); font-size: 13px; }}
+            QLineEdit, QSpinBox {{
                 background: rgba(200,180,255,0.1);
                 color: rgba(200,180,255,1);
                 border: 1px solid rgba(200,180,255,0.2);
                 border-radius: 8px;
                 padding: 8px;
                 font-size: 13px;
-            }
-            QLineEdit:focus, QSpinBox:focus {
+            }}
+            QSpinBox {{
+                padding-right: 22px;
+                min-width: 85px;
+            }}
+            QLineEdit:focus, QSpinBox:focus {{
                 border: 1px solid rgba(200,180,255,0.5);
                 background: rgba(200,180,255,0.15);
-            }
-            QPushButton {
+            }}
+            QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(102,126,234,0.6), stop:1 rgba(118,75,162,0.6));
+                    stop:0 rgba({p[0]},{p[1]},{p[2]},0.6), stop:1 rgba({s[0]},{s[1]},{s[2]},0.6));
                 color: rgba(200,180,255,1);
                 border: 1px solid rgba(200,180,255,0.25);
                 border-radius: 10px;
                 padding: 10px 24px;
                 font-size: 13px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(102,126,234,0.8), stop:1 rgba(118,75,162,0.8));
+                    stop:0 rgba({p[0]},{p[1]},{p[2]},0.8), stop:1 rgba({s[0]},{s[1]},{s[2]},0.8));
                 border: 1px solid rgba(200,180,255,0.5);
-            }
-            QPushButton#iconBtn {
+            }}
+            QPushButton#iconBtn {{
                 min-width: 40px; max-width: 40px;
                 min-height: 40px; max-height: 40px;
                 font-size: 20px;
                 padding: 0;
-            }
+            }}
         """)
 
         layout = QFormLayout(self)
@@ -502,7 +589,234 @@ class CustomReminderDialog(QDialog):
         }
 
 
+# ==================== 开关控件 ====================
+
+class ToggleSwitch(QWidget):
+    """仿 iOS 滑动开关"""
+    toggled = pyqtSignal(bool)
+
+    def __init__(self, checked=False, parent=None):
+        super().__init__(parent)
+        self._checked = checked
+        self._offset = 22.0 if checked else 2.0
+        self.setFixedSize(46, 24)
+        self.setCursor(Qt.PointingHandCursor)
+
+        self._anim = QPropertyAnimation(self, b"offset")
+        self._anim.setDuration(180)
+        self._anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+    def isChecked(self):
+        return self._checked
+
+    def setChecked(self, val):
+        if self._checked == val:
+            return
+        self._checked = val
+        self._animate()
+
+    def _animate(self):
+        self._anim.stop()
+        self._anim.setStartValue(self._offset)
+        self._anim.setEndValue(22.0 if self._checked else 2.0)
+        self._anim.start()
+
+    def get_offset(self):
+        return self._offset
+
+    def set_offset(self, val):
+        self._offset = val
+        self.update()
+
+    offset = pyqtProperty(float, fget=get_offset, fset=set_offset)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._checked = not self._checked
+            self._animate()
+            self.toggled.emit(self._checked)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        # 背景轨道
+        if self._checked:
+            p.setBrush(QColor(*THEME.get("primary", (102, 126, 234))))
+        else:
+            p.setBrush(QColor(80, 80, 100))
+        p.setPen(Qt.NoPen)
+        p.drawRoundedRect(0, 0, self.width(), self.height(), 12, 12)
+        # 圆形滑块
+        p.setBrush(QColor(255, 255, 255))
+        p.drawEllipse(int(self._offset), 2, 20, 20)
+        p.end()
+
+
 # ==================== 设置面板（现代化） ====================
+
+_DIALOG_COLORS = {
+    "light": {
+        "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
+        "text": "rgba(200,180,255,0.9)", "text_full": "rgba(200,180,255,1)",
+        "input_bg": "rgba(200,180,255,0.1)", "input_bg_h": "rgba(200,180,255,0.15)",
+        "border": "rgba(200,180,255,0.2)", "border_h": "rgba(200,180,255,0.5)",
+        "spin_btn": "rgba(200,180,255,0.15)", "spin_btn_h": "rgba(200,180,255,0.3)",
+        "grp_bg": "stop:0 rgba(200,180,255,0.08), stop:0.5 rgba(200,180,255,0.12), stop:1 rgba(200,180,255,0.15)",
+        "grp_border": "rgba(200,180,255,0.12)", "grp_title": "rgba(200,180,255,0.95)",
+        "scroll_bg": "rgba(200,180,255,0.05)", "scroll_h": "rgba(200,180,255,0.2)",
+        "scroll_hh": "rgba(200,180,255,0.35)",
+        "tooltip_bg": "rgba(30,30,50,230)", "tooltip_border": "rgba(200,180,255,0.3)",
+    },
+    "dark": {
+        "bg": "stop:0 #0a0a0f, stop:0.4 #111118, stop:0.7 #0d0d14, stop:1 #141420",
+        "text": "rgba(180,180,200,0.9)", "text_full": "rgba(200,200,220,1)",
+        "input_bg": "rgba(200,200,220,0.06)", "input_bg_h": "rgba(200,200,220,0.1)",
+        "border": "rgba(200,200,220,0.12)", "border_h": "rgba(200,200,220,0.3)",
+        "spin_btn": "rgba(200,200,220,0.08)", "spin_btn_h": "rgba(200,200,220,0.15)",
+        "grp_bg": "stop:0 rgba(200,200,220,0.04), stop:0.5 rgba(200,200,220,0.06), stop:1 rgba(200,200,220,0.08)",
+        "grp_border": "rgba(200,200,220,0.08)", "grp_title": "rgba(180,180,200,0.9)",
+        "scroll_bg": "rgba(200,200,220,0.03)", "scroll_h": "rgba(200,200,220,0.12)",
+        "scroll_hh": "rgba(200,200,220,0.22)",
+        "tooltip_bg": "rgba(15,15,22,240)", "tooltip_border": "rgba(200,200,220,0.15)",
+    },
+}
+
+
+def _row_style():
+    if THEME.get("bg_start", (102, 126, 234))[0] < 50:
+        return """
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 rgba(200,200,220,0.06), stop:1 rgba(200,200,220,0.08));
+            border: 1px solid rgba(200,200,220,0.08);
+            border-radius: 10px; padding: 8px 12px;
+        """
+    else:
+        return """
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 rgba(200,180,255,0.1), stop:1 rgba(200,180,255,0.15));
+            border: 1px solid rgba(200,180,255,0.1);
+            border-radius: 10px; padding: 8px 12px;
+        """
+
+
+def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
+    c = _DIALOG_COLORS.get(theme_name, _DIALOG_COLORS["dark"])
+    p = THEME.get("primary", (102, 126, 234))
+    s = THEME.get("secondary", (118, 75, 162))
+    if theme_name == "dark":
+        bg_grad = c["bg"]
+        # 暗色模式按钮用深色
+        bpr, bpy, bpb = 40, 40, 55
+        bsr, bsy, bsb = 35, 35, 50
+    else:
+        bpr, bpy, bpb = p[0], p[1], p[2]
+        bsr, bsy, bsb = s[0], s[1], s[2]
+        def _dim(v, factor=0.35):
+            return max(10, int(v * factor))
+        bg_grad = (f"stop:0 rgb({_dim(p[0])},{_dim(p[1])},{_dim(p[2])}), "
+                   f"stop:0.4 rgb({_dim(p[0],0.45)},{_dim(p[1],0.45)},{_dim(p[2],0.45)}), "
+                   f"stop:0.7 rgb({_dim(p[0])},{_dim(p[1])},{_dim(p[2])}), "
+                   f"stop:1 rgb({_dim(s[0])},{_dim(s[1])},{_dim(s[2])})")
+    return """
+        QDialog { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, %(bg)s); }
+        QLabel { color: %(text)s; font-size: 13px; }
+        QSpinBox {
+            background: %(input_bg)s; color: %(text_full)s;
+            border: 1px solid %(border)s; border-radius: 8px;
+            padding: 6px; padding-right: 22px; font-size: 13px; min-width: 85px;
+        }
+        QSpinBox:hover { border: 1px solid %(border_h)s; background: %(input_bg_h)s; }
+        QSpinBox::up-button, QSpinBox::down-button {
+            background: %(spin_btn)s; border: none; border-radius: 3px;
+        }
+        QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: %(spin_btn_h)s; }
+        QSpinBox::up-arrow { image: url(%(arrow_up)s); width: 16px; height: 16px; }
+        QSpinBox::down-arrow { image: url(%(arrow_down)s); width: 16px; height: 16px; }
+        QCheckBox { color: %(text)s; font-size: 13px; }
+        QCheckBox::indicator {
+            width: 20px; height: 20px;
+            border: 2px solid %(border)s; border-radius: 5px;
+            background: rgba(255,255,255,0.9);
+        }
+        QCheckBox::indicator:hover { border: 2px solid %(border_h)s; background: %(input_bg_h)s; }
+        QCheckBox::indicator:checked {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgb(%(pr)s,%(pg)s,%(pb)s), stop:1 rgb(%(sr)s,%(sg)s,%(sb)s));
+            border-color: %(border_h)s; image: url(%(check)s);
+        }
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 rgba(%(bpr)s,%(bpy)s,%(bpb)s,0.6), stop:1 rgba(%(bsr)s,%(bsy)s,%(bsb)s,0.6));
+            color: %(text_full)s; border: 1px solid %(border)s;
+            border-radius: 10px; padding: 10px 24px; font-size: 13px; font-weight: bold;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 rgba(%(bpr)s,%(bpy)s,%(bpb)s,0.8), stop:1 rgba(%(bsr)s,%(bsy)s,%(bsb)s,0.8));
+            border: 1px solid %(border_h)s;
+        }
+        QPushButton:pressed {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 rgba(%(bpr)s,%(bpy)s,%(bpb)s,0.9), stop:1 rgba(%(bsr)s,%(bsy)s,%(bsb)s,0.9));
+        }
+        QPushButton#editBtn {
+            background: rgba(72,209,204,0.15); color: rgba(72,209,204,0.9);
+            border: 1px solid rgba(72,209,204,0.2); border-radius: 8px;
+            padding: 0; font-size: 16px;
+        }
+        QPushButton#editBtn:hover {
+            background: rgba(72,209,204,0.35); border: 1px solid rgba(72,209,204,0.6);
+            color: rgba(72,209,204,1);
+        }
+        QPushButton#editBtn:pressed { background: rgba(72,209,204,0.5); }
+        QPushButton#delBtn {
+            background: rgba(244,67,54,0.12); color: rgba(244,67,54,0.85);
+            border: 1px solid rgba(244,67,54,0.2); border-radius: 8px;
+            padding: 0; font-size: 16px;
+        }
+        QPushButton#delBtn:hover {
+            background: rgba(244,67,54,0.35); border: 1px solid rgba(244,67,54,0.6);
+            color: rgba(244,67,54,1);
+        }
+        QPushButton#delBtn:pressed { background: rgba(244,67,54,0.5); }
+        QGroupBox {
+            color: %(grp_title)s;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1, %(grp_bg)s);
+            border: 1px solid %(grp_border)s; border-radius: 14px;
+            margin-top: 12px; padding-top: 18px; font-size: 13px; font-weight: bold;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin; left: 18px; padding: 0 8px; color: %(grp_title)s;
+        }
+        QLineEdit {
+            background: %(input_bg)s; color: %(text_full)s;
+            border: 1px solid %(border)s; border-radius: 8px; padding: 6px; font-size: 13px;
+        }
+        QLineEdit:focus { border: 1px solid %(border_h)s; background: %(input_bg_h)s; }
+        QScrollArea { border: none; background: transparent; }
+        QScrollBar:vertical { background: %(scroll_bg)s; width: 8px; border-radius: 4px; }
+        QScrollBar::handle:vertical {
+            background: %(scroll_h)s; border-radius: 4px; min-height: 30px;
+        }
+        QScrollBar::handle:vertical:hover { background: %(scroll_hh)s; }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+        QToolTip {
+            background: %(tooltip_bg)s; color: %(text_full)s;
+            border: 1px solid %(tooltip_border)s; border-radius: 6px;
+            padding: 5px 10px; font-size: 12px;
+        }
+    """ % {
+        **c,
+        "bg": bg_grad,
+        "check": check_path,
+        "arrow_up": arrow_up_path,
+        "arrow_down": arrow_down_path,
+        "pr": p[0], "pg": p[1], "pb": p[2],
+        "sr": s[0], "sg": s[1], "sb": s[2],
+        "bpr": bpr, "bpy": bpy, "bpb": bpb,
+        "bsr": bsr, "bsy": bsy, "bsb": bsb,
+    }
+
 
 class SettingsDialog(QDialog):
     """设置面板 - 卡片式布局"""
@@ -518,128 +832,27 @@ class SettingsDialog(QDialog):
 
         self.setWindowTitle("健康提醒 - 设置")
         self.setMinimumSize(480, 450)
-        self.resize(520, 550)
+        self.resize(480, 750)
 
-        check_path = CHECK_ICON.replace("\\", "/")
-        self.setStyleSheet("""
-            QDialog {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483);
-            }
-            QLabel { color: rgba(200,180,255,0.9); font-size: 13px; }
-            QSpinBox {
-                background: rgba(200,180,255,0.1);
-                color: rgba(200,180,255,1);
-                border: 1px solid rgba(200,180,255,0.2);
-                border-radius: 8px;
-                padding: 6px;
-                font-size: 13px;
-            }
-            QSpinBox:hover {
-                border: 1px solid rgba(200,180,255,0.4);
-                background: rgba(200,180,255,0.15);
-            }
-            QSpinBox::up-button, QSpinBox::down-button {
-                background: rgba(200,180,255,0.15);
-                border: none;
-                border-radius: 3px;
-            }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background: rgba(200,180,255,0.3);
-            }
-            QCheckBox { color: rgba(200,180,255,0.9); font-size: 13px; }
-            QCheckBox::indicator {
-                width: 20px; height: 20px;
-                border: 2px solid rgba(200,180,255,0.3);
-                border-radius: 5px;
-                background: rgba(200,180,255,0.08);
-            }
-            QCheckBox::indicator:hover {
-                border: 2px solid rgba(200,180,255,0.5);
-                background: rgba(200,180,255,0.15);
-            }
-            QCheckBox::indicator:checked {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #667eea, stop:1 #764ba2);
-                border-color: rgba(200,180,255,0.8);
-                image: url(%s);
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(102,126,234,0.6), stop:1 rgba(118,75,162,0.6));
-                color: rgba(200,180,255,1);
-                border: 1px solid rgba(200,180,255,0.25);
-                border-radius: 10px;
-                padding: 10px 24px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(102,126,234,0.8), stop:1 rgba(118,75,162,0.8));
-                border: 1px solid rgba(200,180,255,0.5);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(102,126,234,0.9), stop:1 rgba(118,75,162,0.9));
-            }
-            QGroupBox {
-                color: rgba(200,180,255,0.95);
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(200,180,255,0.08), stop:0.5 rgba(200,180,255,0.12), stop:1 rgba(200,180,255,0.15));
-                border: 1px solid rgba(200,180,255,0.12);
-                border-radius: 14px;
-                margin-top: 12px;
-                padding-top: 18px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 18px;
-                padding: 0 8px;
-                color: rgba(200,180,255,0.95);
-            }
-            QLineEdit {
-                background: rgba(200,180,255,0.1);
-                color: rgba(200,180,255,1);
-                border: 1px solid rgba(200,180,255,0.2);
-                border-radius: 8px;
-                padding: 6px;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                border: 1px solid rgba(200,180,255,0.5);
-                background: rgba(200,180,255,0.15);
-            }
-            QScrollArea {
-                border: none;
-                background: transparent;
-            }
-            QScrollBar:vertical {
-                background: rgba(200,180,255,0.05);
-                width: 8px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(200,180,255,0.2);
-                border-radius: 4px;
-                min-height: 30px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: rgba(200,180,255,0.35);
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
-        """ % check_path)
+        self._check_path = CHECK_ICON.replace("\\", "/")
+        self._arrow_up_path = ARROW_UP_ICON.replace("\\", "/")
+        self._arrow_down_path = ARROW_DOWN_ICON.replace("\\", "/")
+        self._apply_style()
 
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(25, 20, 25, 20)
+
+        # 主内容滚动区域
+        main_scroll = QScrollArea()
+        main_scroll.setWidgetResizable(True)
+        main_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        main_scroll_widget = QWidget()
+        main_scroll_widget.setStyleSheet("background: transparent;")
+        content_layout = QVBoxLayout(main_scroll_widget)
+        content_layout.setSpacing(10)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        main_scroll.setWidget(main_scroll_widget)
 
         # 提醒设置分组
         group = QGroupBox("提醒设置")
@@ -657,18 +870,13 @@ class SettingsDialog(QDialog):
         scroll.setWidget(scroll_widget)
         group_layout.addWidget(scroll)
 
-        row_style = """
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                stop:0 rgba(200,180,255,0.1), stop:1 rgba(200,180,255,0.15));
-            border: 1px solid rgba(200,180,255,0.1);
-            border-radius: 10px; padding: 8px 12px;
-        """
+        row_style = _row_style()
 
         # 内置提醒
         self.eye_check = QCheckBox("👀 启用护眼提醒")
         self.eye_check.setChecked(config["eye_care"]["enabled"])
         self.eye_spin = QSpinBox()
-        self.eye_spin.setRange(1, 120)
+        self.eye_spin.setRange(1, 480)
         self.eye_spin.setValue(config["eye_care"]["interval"])
         self.eye_spin.setSuffix(" 分钟")
         eye_row = QWidget()
@@ -684,7 +892,7 @@ class SettingsDialog(QDialog):
         self.rest_check = QCheckBox("🧘 启用休息提醒")
         self.rest_check.setChecked(config["rest"]["enabled"])
         self.rest_spin = QSpinBox()
-        self.rest_spin.setRange(1, 120)
+        self.rest_spin.setRange(1, 480)
         self.rest_spin.setValue(config["rest"]["interval"])
         self.rest_spin.setSuffix(" 分钟")
         rest_row = QWidget()
@@ -700,7 +908,7 @@ class SettingsDialog(QDialog):
         self.water_check = QCheckBox("💧 启用喝水提醒")
         self.water_check.setChecked(config["water"]["enabled"])
         self.water_spin = QSpinBox()
-        self.water_spin.setRange(1, 120)
+        self.water_spin.setRange(1, 480)
         self.water_spin.setValue(config["water"]["interval"])
         self.water_spin.setSuffix(" 分钟")
         water_row = QWidget()
@@ -714,34 +922,149 @@ class SettingsDialog(QDialog):
         self.form.addRow(water_row)
 
         self._rebuild_custom_rows()
-        main_layout.addWidget(group)
+        content_layout.addWidget(group)
 
         # 添加自定义提醒
         add_btn = QPushButton("+ 添加自定义提醒")
         add_btn.clicked.connect(self._add_custom)
-        main_layout.addWidget(add_btn)
+        content_layout.addWidget(add_btn)
+
+        # 其他设置
+        other_group = QGroupBox("高级设置")
+        other_layout = QVBoxLayout(other_group)
+        other_layout.setSpacing(10)
 
         # 勿扰模式
-        dnd_group = QGroupBox("勿扰模式")
-        dnd_layout = QHBoxLayout(dnd_group)
-        self.dnd_check = QCheckBox("启用勿扰")
-        self.dnd_check.setChecked(config.get("dnd_enabled", False))
-        dnd_layout.addWidget(self.dnd_check)
-        dnd_layout.addWidget(QLabel("从"))
+        dnd_row = QWidget()
+        dnd_row.setStyleSheet(row_style)
+        dnd_lay = QHBoxLayout(dnd_row)
+        dnd_lay.setContentsMargins(0, 0, 0, 0)
+        dnd_lay.addWidget(QLabel("🌙 启用勿扰"))
+        dnd_lay.addStretch()
+
+        # 时间选择合并容器
+        time_box = QWidget()
+        time_box.setStyleSheet("""
+            background: rgba(200,180,255,0.15);
+            border: 1px solid rgba(200,180,255,0.25);
+            border-radius: 8px;
+        """)
+        time_lay = QHBoxLayout(time_box)
+        time_lay.setContentsMargins(8, 4, 8, 4)
+        time_lay.setSpacing(4)
+        time_lay.addWidget(QLabel("从"))
         self.dnd_start = QLineEdit(config.get("dnd_start", "22:00"))
-        self.dnd_start.setFixedWidth(60)
-        dnd_layout.addWidget(self.dnd_start)
-        dnd_layout.addWidget(QLabel("到"))
+        self.dnd_start.setFixedWidth(50)
+        self.dnd_start.setAlignment(Qt.AlignCenter)
+        self.dnd_start.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid rgba(200,180,255,0.2);
+                border-radius: 4px;
+                background: rgba(200,180,255,0.1);
+                color: white;
+                padding: 2px 4px;
+            }
+        """)
+        time_lay.addWidget(self.dnd_start)
+        time_lay.addWidget(QLabel("到"))
         self.dnd_end = QLineEdit(config.get("dnd_end", "08:00"))
-        self.dnd_end.setFixedWidth(60)
-        dnd_layout.addWidget(self.dnd_end)
-        dnd_layout.addStretch()
-        main_layout.addWidget(dnd_group)
+        self.dnd_end.setFixedWidth(50)
+        self.dnd_end.setAlignment(Qt.AlignCenter)
+        self.dnd_end.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid rgba(200,180,255,0.2);
+                border-radius: 4px;
+                background: rgba(200,180,255,0.1);
+                color: white;
+                padding: 2px 4px;
+            }
+        """)
+        time_lay.addWidget(self.dnd_end)
+        dnd_lay.addWidget(time_box)
+
+        self.dnd_switch = ToggleSwitch(config.get("dnd_enabled", False))
+        dnd_lay.addWidget(self.dnd_switch)
+        other_layout.addWidget(dnd_row)
 
         # 提示音
-        self.sound_check = QCheckBox("开启提示音")
-        self.sound_check.setChecked(config.get("sound", True))
-        main_layout.addWidget(self.sound_check)
+        sound_row = QWidget()
+        sound_row.setStyleSheet(row_style)
+        sound_lay = QHBoxLayout(sound_row)
+        sound_lay.setContentsMargins(0, 0, 0, 0)
+        sound_lay.addWidget(QLabel("🔔 开启提示音"))
+        sound_lay.addStretch()
+        self.sound_switch = ToggleSwitch(config.get("sound", True))
+        sound_lay.addWidget(self.sound_switch)
+        other_layout.addWidget(sound_row)
+
+        # 开机自启动
+        autostart_row = QWidget()
+        autostart_row.setStyleSheet(row_style)
+        autostart_lay = QHBoxLayout(autostart_row)
+        autostart_lay.setContentsMargins(0, 0, 0, 0)
+        autostart_lay.addWidget(QLabel("🚀 开机自启动"))
+        autostart_lay.addStretch()
+        self.autostart_switch = ToggleSwitch(config.get("auto_start", False))
+        autostart_lay.addWidget(self.autostart_switch)
+        other_layout.addWidget(autostart_row)
+
+        # 亮色模式
+        theme_row = QWidget()
+        theme_row.setStyleSheet(row_style)
+        theme_lay = QHBoxLayout(theme_row)
+        theme_lay.setContentsMargins(0, 0, 0, 0)
+        theme_lay.addWidget(QLabel("🎨 亮色/暗色模式"))
+        theme_lay.addStretch()
+        self.theme_switch = ToggleSwitch(config.get("theme", "light") == "dark")
+        self.theme_switch.toggled.connect(self._on_theme_toggle)
+        theme_lay.addWidget(self.theme_switch)
+        other_layout.addWidget(theme_row)
+
+        # 自定义渐变颜色
+        self._grad_start_color = list(config.get("gradient_start")) if config.get("gradient_start") else None
+        self._grad_end_color = list(config.get("gradient_end")) if config.get("gradient_end") else None
+
+        grad_row = QWidget()
+        grad_row.setStyleSheet(row_style)
+        grad_lay = QHBoxLayout(grad_row)
+        grad_lay.setContentsMargins(0, 0, 0, 0)
+        grad_lay.addWidget(QLabel("🌈 渐变颜色"))
+        grad_lay.addStretch()
+
+        self._grad_start_preview = QLabel()
+        self._grad_start_preview.setFixedSize(24, 24)
+        self._update_color_preview(self._grad_start_preview, self._grad_start_color or list(THEME_PRESETS[config.get("theme", "light")]["primary"]))
+        self._grad_start_preview.setCursor(Qt.PointingHandCursor)
+        self._grad_start_preview.mousePressEvent = lambda _: self._pick_gradient_color("start")
+        grad_lay.addWidget(self._grad_start_preview)
+
+        grad_lay.addWidget(QLabel("→"))
+
+        self._grad_end_preview = QLabel()
+        self._grad_end_preview.setFixedSize(24, 24)
+        self._update_color_preview(self._grad_end_preview, self._grad_end_color or list(THEME_PRESETS[config.get("theme", "light")]["secondary"]))
+        self._grad_end_preview.setCursor(Qt.PointingHandCursor)
+        self._grad_end_preview.mousePressEvent = lambda _: self._pick_gradient_color("end")
+        grad_lay.addWidget(self._grad_end_preview)
+
+        reset_btn = QPushButton("重置")
+        reset_btn.setFixedSize(50, 28)
+        reset_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(200,180,255,0.1); color: rgba(200,180,255,0.7);
+                border: 1px solid rgba(200,180,255,0.15); border-radius: 6px;
+                font-size: 11px; padding: 0;
+            }
+            QPushButton:hover { background: rgba(200,180,255,0.2); color: rgba(200,180,255,1); }
+        """)
+        reset_btn.setToolTip("恢复主题默认颜色")
+        reset_btn.clicked.connect(self._reset_gradient_colors)
+        grad_lay.addWidget(reset_btn)
+
+        other_layout.addWidget(grad_row)
+
+        content_layout.addWidget(other_group)
+        main_layout.addWidget(main_scroll)
 
         # 底部按钮
         bottom = QHBoxLayout()
@@ -753,6 +1076,65 @@ class SettingsDialog(QDialog):
         bottom.addWidget(cancel_btn)
         main_layout.addLayout(bottom)
 
+        # 回车保存但不退出
+        self.eye_spin.editingFinished.connect(self._auto_save)
+        self.rest_spin.editingFinished.connect(self._auto_save)
+        self.water_spin.editingFinished.connect(self._auto_save)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self._auto_save()
+            return
+        super().keyPressEvent(event)
+
+    def _apply_style(self):
+        theme = self.config.get("theme", "light")
+        self.setStyleSheet(_build_dialog_style(
+            theme, self._check_path, self._arrow_up_path, self._arrow_down_path))
+
+    def _on_theme_toggle(self, checked):
+        theme = "dark" if checked else "light"
+        self.config["gradient_start"] = self._grad_start_color
+        self.config["gradient_end"] = self._grad_end_color
+        apply_theme(theme)
+        apply_gradient_colors(self.config)
+        self.config["theme"] = theme
+        self._apply_style()
+        if self.parent():
+            self.parent().config["theme"] = theme
+            self.parent().update()
+        save_config(self.config)
+
+    def _update_color_preview(self, label, color):
+        """更新色块预览"""
+        r, g, b = color[0], color[1], color[2]
+        label.setStyleSheet(
+            f"background: rgb({r},{g},{b}); border: 2px solid rgba(200,180,255,0.3); border-radius: 4px;")
+
+    def _pick_gradient_color(self, which):
+        """弹出颜色选择器"""
+        if which == "start":
+            current = self._grad_start_color or list(THEME_PRESETS[self.config.get("theme", "light")]["primary"])
+        else:
+            current = self._grad_end_color or list(THEME_PRESETS[self.config.get("theme", "light")]["secondary"])
+        color = QColorDialog.getColor(QColor(*current), self, "选择渐变颜色")
+        if color.isValid():
+            rgb = [color.red(), color.green(), color.blue()]
+            if which == "start":
+                self._grad_start_color = rgb
+                self._update_color_preview(self._grad_start_preview, rgb)
+            else:
+                self._grad_end_color = rgb
+                self._update_color_preview(self._grad_end_preview, rgb)
+
+    def _reset_gradient_colors(self):
+        """重置为主题默认渐变颜色"""
+        self._grad_start_color = None
+        self._grad_end_color = None
+        theme = self.config.get("theme", "light")
+        self._update_color_preview(self._grad_start_preview, list(THEME_PRESETS[theme]["primary"]))
+        self._update_color_preview(self._grad_end_preview, list(THEME_PRESETS[theme]["secondary"]))
+
     def _rebuild_custom_rows(self):
         for container in self.custom_containers:
             self.form.removeRow(container)
@@ -761,12 +1143,7 @@ class SettingsDialog(QDialog):
         self.custom_btn_widgets.clear()
         self.custom_containers.clear()
 
-        row_style = """
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                stop:0 rgba(200,180,255,0.1), stop:1 rgba(200,180,255,0.15));
-            border: 1px solid rgba(200,180,255,0.1);
-            border-radius: 10px; padding: 8px 12px;
-        """
+        row_style = _row_style()
 
         for i, item in enumerate(self.custom_items):
             check = QCheckBox(f"{item['icon']} {item['name']}")
@@ -777,6 +1154,7 @@ class SettingsDialog(QDialog):
             spin.setRange(1, 480)
             spin.setValue(item.get("interval", 30))
             spin.setSuffix(" 分钟")
+            spin.editingFinished.connect(self._auto_save)
             self.custom_spins.append(spin)
 
             row_widget = QWidget()
@@ -785,14 +1163,16 @@ class SettingsDialog(QDialog):
             row_layout.setSpacing(6)
             row_layout.addWidget(spin)
 
-            edit_btn = QPushButton("✎")
-            edit_btn.setFixedSize(30, 30)
+            edit_btn = QPushButton("✏️")
+            edit_btn.setFixedSize(35, 35)
+            edit_btn.setObjectName("editBtn")
             edit_btn.setToolTip("编辑")
             edit_btn.clicked.connect(lambda _, x=i: self._edit_custom(x))
             row_layout.addWidget(edit_btn)
 
             del_btn = QPushButton("✕")
-            del_btn.setFixedSize(30, 30)
+            del_btn.setFixedSize(35, 35)
+            del_btn.setObjectName("delBtn")
             del_btn.setToolTip("删除")
             del_btn.clicked.connect(lambda _, x=i: self._del_custom(x))
             row_layout.addWidget(del_btn)
@@ -835,17 +1215,22 @@ class SettingsDialog(QDialog):
             self.custom_items.pop(idx)
             self._rebuild_custom_rows()
 
-    def save(self):
+    def _auto_save(self):
+        """保存配置但不关闭对话框"""
         self.config["eye_care"]["enabled"] = self.eye_check.isChecked()
         self.config["eye_care"]["interval"] = self.eye_spin.value()
         self.config["rest"]["enabled"] = self.rest_check.isChecked()
         self.config["rest"]["interval"] = self.rest_spin.value()
         self.config["water"]["enabled"] = self.water_check.isChecked()
         self.config["water"]["interval"] = self.water_spin.value()
-        self.config["sound"] = self.sound_check.isChecked()
-        self.config["dnd_enabled"] = self.dnd_check.isChecked()
+        self.config["sound"] = self.sound_switch.isChecked()
+        self.config["auto_start"] = self.autostart_switch.isChecked()
+        self.config["dnd_enabled"] = self.dnd_switch.isChecked()
+        self.config["theme"] = "dark" if self.theme_switch.isChecked() else "light"
         self.config["dnd_start"] = self.dnd_start.text().strip()
         self.config["dnd_end"] = self.dnd_end.text().strip()
+        self.config["gradient_start"] = self._grad_start_color
+        self.config["gradient_end"] = self._grad_end_color
 
         custom = []
         for i, item in enumerate(self.custom_items):
@@ -855,6 +1240,16 @@ class SettingsDialog(QDialog):
         self.config["custom"] = custom
 
         save_config(self.config)
+
+    def save(self):
+        """保存配置并关闭对话框"""
+        self._auto_save()
+        apply_theme(self.config.get("theme", "light"))
+        apply_gradient_colors(self.config)
+        set_autostart(self.config.get("auto_start", False))
+        if self.parent():
+            self.parent().config = self.config
+            self.parent().update()
         self.accept()
 
 
@@ -1263,7 +1658,7 @@ class FloatingWidget(QWidget):
             size_layout.setContentsMargins(12, 4, 12, 4)
             size_layout.setSpacing(8)
             size_label = QLabel(f"大小: {self.config.get('widget_size', 80)}")
-            size_label.setFixedWidth(50)
+            size_label.setFixedWidth(65)
             size_label.setStyleSheet("color: white; font-size: 12px;")
             size_slider = QSlider(Qt.Horizontal)
             size_slider.setRange(60, 200)
@@ -1318,12 +1713,12 @@ class FloatingWidget(QWidget):
             self.reinit_timers()
 
     def toggle_mini_mode(self):
+        old_pos = self.pos()
         self.mini_mode = not self.mini_mode
         self.config["mini_mode"] = self.mini_mode
         save_config(self.config)
         self.update_size()
-        screen = QApplication.primaryScreen().geometry()
-        self.move(screen.width() - self.width() - 20, 80)
+        self.move(old_pos)
 
     def _on_size_changed(self, value, label):
         self.config["widget_size"] = value
@@ -1420,12 +1815,68 @@ class FloatingWidget(QWidget):
 
 # ==================== 程序入口 ====================
 
+class _TooltipLabel(QLabel):
+    """自定义圆角 Tooltip，避免黑角"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setStyleSheet("background: transparent; color: rgba(200,180,255,1);")
+        self.setContentsMargins(10, 6, 10, 6)
+
+    def show_at(self, text, pos):
+        font = self.font()
+        font.setPointSize(10)
+        self.setFont(font)
+        self.setText(text)
+        self.adjustSize()
+        self.move(pos.x() + 12, pos.y() + 12)
+        self.show()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor(30, 30, 50, 230))
+        painter.setPen(QColor(200, 180, 255, 76))
+        painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 6, 6)
+        painter.end()
+        super().paintEvent(event)
+
+
+_tooltip = None
+
+
+class _TooltipFilter(QObject):
+    """全局事件过滤器，拦截 Tooltip 显示自定义圆角提示"""
+    def eventFilter(self, obj, event):
+        global _tooltip
+        if event.type() == QEvent.ToolTip:
+            text = obj.toolTip()
+            if text:
+                if _tooltip is None:
+                    _tooltip = _TooltipLabel()
+                font = _tooltip.font()
+                font.setPointSize(9)
+                _tooltip.setFont(font)
+                _tooltip.show_at(text, event.globalPos())
+            return True
+        if event.type() in (QEvent.Leave, QEvent.Hide, QEvent.WindowDeactivate):
+            if _tooltip is not None:
+                _tooltip.hide()
+        return super().eventFilter(obj, event)
+
+
 def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    app.installEventFilter(_TooltipFilter(app))
     create_checkmark_icon()
+    create_arrow_icons()
 
     widget = FloatingWidget()
+    apply_theme(widget.config.get("theme", "light"))
+    apply_gradient_colors(widget.config)
+    set_autostart(widget.config.get("auto_start", False))
     widget.show()
 
     sys.exit(app.exec_())
