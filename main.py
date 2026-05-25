@@ -333,7 +333,7 @@ class ReminderPopup(QWidget):
 
     snooze_signal = pyqtSignal(str, int)  # (key, minutes)
 
-    def __init__(self, message, color, key="custom", parent=None):
+    def __init__(self, message, color, key="custom", interval=30, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -345,8 +345,9 @@ class ReminderPopup(QWidget):
         self.message = message
         self.color = color
         self.key = key
+        self.interval = interval
         self.opacity_val = 0.0
-        self.total_time = 4000  # 4秒自动关闭
+        self.total_time = 5000  # 4秒自动关闭
         self.elapsed_time = 0
         self.is_snoozed = False
 
@@ -374,6 +375,10 @@ class ReminderPopup(QWidget):
 
     def _create_buttons(self):
         """创建贪睡和关闭按钮"""
+        # 间隔小于5分钟时隐藏贪睡按钮
+        if self.interval < 5:
+            self.snooze_btn = None
+            return
         # 贪睡按钮
         self.snooze_btn = QPushButton("💤 延迟 5 分钟", self)
         self.snooze_btn.setGeometry(self.width() - 180, self.height() - 55, 120, 32)
@@ -464,9 +469,10 @@ class ReminderPopup(QWidget):
 
     def mousePressEvent(self, event):
         """点击关闭"""
-        if not self.snooze_btn.geometry().contains(event.pos()):
-            record_stat(self.key, "completed")
-            self.fade_out()
+        if self.snooze_btn and self.snooze_btn.geometry().contains(event.pos()):
+            return
+        record_stat(self.key, "completed")
+        self.fade_out()
 
 
 # ==================== 自定义提醒对话框 ====================
@@ -843,6 +849,16 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(25, 20, 25, 20)
 
+        # 标题
+        title_label = QLabel("健康提醒助手")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 26px; font-weight: bold; color: rgba(200,180,255,1); border: none;")
+        main_layout.addWidget(title_label)
+        subtitle_label = QLabel("关爱健康，从每次提醒开始。")
+        subtitle_label.setAlignment(Qt.AlignCenter)
+        subtitle_label.setStyleSheet("font-size: 12px; color: rgba(200,180,255,0.6); border: none; margin-bottom: 5px;")
+        main_layout.addWidget(subtitle_label)
+
         # 主内容滚动区域
         main_scroll = QScrollArea()
         main_scroll.setWidgetResizable(True)
@@ -873,7 +889,7 @@ class SettingsDialog(QDialog):
         row_style = _row_style()
 
         # 内置提醒
-        self.eye_check = QCheckBox("👀 启用护眼提醒")
+        self.eye_check = QCheckBox("👀 护眼提醒")
         self.eye_check.setChecked(config["eye_care"]["enabled"])
         self.eye_spin = QSpinBox()
         self.eye_spin.setRange(1, 480)
@@ -889,7 +905,7 @@ class SettingsDialog(QDialog):
         eye_lay.addWidget(self.eye_spin)
         self.form.addRow(eye_row)
 
-        self.rest_check = QCheckBox("🧘 启用休息提醒")
+        self.rest_check = QCheckBox("🧘 休息提醒")
         self.rest_check.setChecked(config["rest"]["enabled"])
         self.rest_spin = QSpinBox()
         self.rest_spin.setRange(1, 480)
@@ -905,7 +921,7 @@ class SettingsDialog(QDialog):
         rest_lay.addWidget(self.rest_spin)
         self.form.addRow(rest_row)
 
-        self.water_check = QCheckBox("💧 启用喝水提醒")
+        self.water_check = QCheckBox("💧 喝水提醒")
         self.water_check.setChecked(config["water"]["enabled"])
         self.water_spin = QSpinBox()
         self.water_spin.setRange(1, 480)
@@ -939,7 +955,7 @@ class SettingsDialog(QDialog):
         dnd_row.setStyleSheet(row_style)
         dnd_lay = QHBoxLayout(dnd_row)
         dnd_lay.setContentsMargins(0, 0, 0, 0)
-        dnd_lay.addWidget(QLabel("🌙 启用勿扰"))
+        dnd_lay.addWidget(QLabel("🌙 勿扰模式"))
         dnd_lay.addStretch()
 
         # 时间选择合并容器
@@ -1013,7 +1029,7 @@ class SettingsDialog(QDialog):
         theme_row.setStyleSheet(row_style)
         theme_lay = QHBoxLayout(theme_row)
         theme_lay.setContentsMargins(0, 0, 0, 0)
-        theme_lay.addWidget(QLabel("🎨 亮色/暗色模式"))
+        theme_lay.addWidget(QLabel("🎨 亮/暗色模式"))
         theme_lay.addStretch()
         self.theme_switch = ToggleSwitch(config.get("theme", "light") == "dark")
         self.theme_switch.toggled.connect(self._on_theme_toggle)
@@ -1075,6 +1091,12 @@ class SettingsDialog(QDialog):
         bottom.addWidget(save_btn)
         bottom.addWidget(cancel_btn)
         main_layout.addLayout(bottom)
+
+        # 作者和版本号
+        footer_label = QLabel("Bhands  V1.0")
+        footer_label.setAlignment(Qt.AlignCenter)
+        footer_label.setStyleSheet("font-size: 11px; color: rgba(200,180,255,0.35); border: none;")
+        main_layout.addWidget(footer_label)
 
         # 回车保存但不退出
         self.eye_spin.editingFinished.connect(self._auto_save)
@@ -1369,20 +1391,30 @@ class FloatingWidget(QWidget):
             pass
 
         # 弹窗
-        popup = ReminderPopup(f"{info['icon']} {info['message']}", info["color"], key)
+        popup = ReminderPopup(f"{info['icon']} {info['message']}", info["color"], key, interval=info["interval"])
         popup.snooze_signal.connect(self.handle_snooze)
         popup.show()
         # 保持引用防止被回收
-        self._popup = popup
+        if not hasattr(self, '_popups'):
+            self._popups = []
+        self._popups.append(popup)
+        # 清理已关闭的弹窗引用
+        self._popups = [p for p in self._popups if p.isVisible()]
 
     def handle_snooze(self, key, minutes):
         """处理贪睡"""
         if key in self.timers:
             self.timers[key].stop()
 
+        def _snooze_callback(k=key):
+            # 贪睡结束后重启原始定时器
+            if k in self.timers:
+                self.timers[k].start()
+            self.trigger_reminder(k)
+
         snooze_timer = QTimer(self)
         snooze_timer.setSingleShot(True)
-        snooze_timer.timeout.connect(lambda k=key: self.trigger_reminder(k))
+        snooze_timer.timeout.connect(_snooze_callback)
         snooze_timer.start(minutes * 60 * 1000)
         self.snooze_timers[key] = snooze_timer
 
@@ -1867,6 +1899,13 @@ class _TooltipFilter(QObject):
 
 
 def main():
+    # 设置 Windows AppUserModelID，使通知标题显示为"健康提醒"而非"Python"
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("健康提醒.V1.0")
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.installEventFilter(_TooltipFilter(app))
