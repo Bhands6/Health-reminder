@@ -26,7 +26,7 @@ exe = EXE(
     a.datas,
     [],
     name='健康提醒',
-    icon='app_icon.ico',
+    icon='D:/A_Claude_MyCodeProject/health-reminder/app_icon.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

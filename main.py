@@ -58,7 +58,7 @@ DEFAULT_CONFIG = {
     "dnd_start": "22:00",
     "dnd_end": "08:00",
     "mini_mode": False,
-    "widget_size": 80,
+    "widget_size": 100,
     "theme": "light",
     "gradient_start": None,
     "gradient_end": None,
