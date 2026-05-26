@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
     QMenu, QAction, QSystemTrayIcon, QDialog, QFormLayout,
     QSpinBox, QCheckBox, QPushButton, QMessageBox, QLineEdit,
     QInputDialog, QScrollArea, QGroupBox, QGraphicsDropShadowEffect,
-    QDesktopWidget, QShortcut, QWidgetAction, QSlider, QColorDialog
+    QDesktopWidget, QShortcut, QWidgetAction, QSlider, QColorDialog, QComboBox
 )
 from PyQt5.QtCore import (
     Qt, QTimer, QPoint, QPropertyAnimation, QEasingCurve,
@@ -62,6 +62,7 @@ DEFAULT_CONFIG = {
     "theme": "light",
     "gradient_start": None,
     "gradient_end": None,
+    "popup_position": "center",
 }
 
 # 内置提醒配置
@@ -333,14 +334,26 @@ class ReminderPopup(QWidget):
 
     snooze_signal = pyqtSignal(str, int)  # (key, minutes)
 
-    def __init__(self, message, color, key="custom", interval=30, parent=None):
+    def __init__(self, message, color, key="custom", interval=30, position="center", parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(400, 220)
 
         screen = QApplication.primaryScreen().geometry()
-        self.move((screen.width() - self.width()) // 2, (screen.height() - self.height()) // 2)
+        margin = 20
+        w, h = self.width(), self.height()
+        pos_map = {
+            "center": ((screen.width() - w) // 2, (screen.height() - h) // 2),
+            "top_left": (margin, margin),
+            "top_right": (screen.width() - w - margin, margin),
+            "bottom_left": (margin, screen.height() - h - margin),
+            "bottom_right": (screen.width() - w - margin, screen.height() - h - margin),
+            "top_center": ((screen.width() - w) // 2, margin),
+            "bottom_center": ((screen.width() - w) // 2, screen.height() - h - margin),
+        }
+        x, y = pos_map.get(position, pos_map["center"])
+        self.move(x, y)
 
         self.message = message
         self.color = color
@@ -1079,6 +1092,32 @@ class SettingsDialog(QDialog):
 
         other_layout.addWidget(grad_row)
 
+        # 弹窗位置
+        pos_row = QWidget()
+        pos_row.setStyleSheet(row_style)
+        pos_lay = QHBoxLayout(pos_row)
+        pos_lay.setContentsMargins(0, 0, 0, 0)
+        pos_lay.addWidget(QLabel("📍 弹窗位置"))
+        pos_lay.addStretch()
+        self.popup_pos_combo = QComboBox()
+        self.popup_pos_combo.addItems(["居中", "左上", "右上", "左下", "右下", "中上", "中下"])
+        pos_map = {"center": 0, "top_left": 1, "top_right": 2, "bottom_left": 3, "bottom_right": 4, "top_center": 5, "bottom_center": 6}
+        self.popup_pos_combo.setCurrentIndex(pos_map.get(config.get("popup_position", "center"), 0))
+        self.popup_pos_combo.setStyleSheet("""
+            QComboBox {
+                background: rgba(200,180,255,0.1); color: rgba(200,180,255,1);
+                border: 1px solid rgba(200,180,255,0.2); border-radius: 8px;
+                padding: 4px 8px; font-size: 13px; min-width: 70px;
+            }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: rgba(30,30,50,240); color: rgba(200,180,255,1);
+                selection-background-color: rgba(102,126,234,0.6);
+            }
+        """)
+        pos_lay.addWidget(self.popup_pos_combo)
+        other_layout.addWidget(pos_row)
+
         content_layout.addWidget(other_group)
         main_layout.addWidget(main_scroll)
 
@@ -1253,6 +1292,8 @@ class SettingsDialog(QDialog):
         self.config["dnd_end"] = self.dnd_end.text().strip()
         self.config["gradient_start"] = self._grad_start_color
         self.config["gradient_end"] = self._grad_end_color
+        pos_keys = ["center", "top_left", "top_right", "bottom_left", "bottom_right", "top_center", "bottom_center"]
+        self.config["popup_position"] = pos_keys[self.popup_pos_combo.currentIndex()]
 
         custom = []
         for i, item in enumerate(self.custom_items):
@@ -1391,7 +1432,7 @@ class FloatingWidget(QWidget):
             pass
 
         # 弹窗
-        popup = ReminderPopup(f"{info['icon']} {info['message']}", info["color"], key, interval=info["interval"])
+        popup = ReminderPopup(f"{info['icon']} {info['message']}", info["color"], key, interval=info["interval"], position=self.config.get("popup_position", "center"))
         popup.snooze_signal.connect(self.handle_snooze)
         popup.show()
         # 保持引用防止被回收
@@ -1455,6 +1496,14 @@ class FloatingWidget(QWidget):
         gradient.setColorAt(1, QColor(*THEME["secondary"], 230))
         painter.setBrush(QBrush(gradient))
         painter.drawRoundedRect(0, 0, circle_size, circle_size, circle_r, circle_r)
+
+        # 勿扰模式下显示空闲状态
+        if is_dnd_active(self.config):
+            icon_size = max(12, circle_size // 4)
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont("Segoe UI Emoji", icon_size))
+            painter.drawText(0, 0, circle_size, circle_size, Qt.AlignCenter, "🌙")
+            return
 
         # 进度环
         key, remaining = self.get_next_reminder()
