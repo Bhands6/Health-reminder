@@ -20,13 +20,20 @@
 - 悬浮窗可拖拽，支持迷你模式和完整模式
 - 迷你模式带进度环动画，图标会"眨眼"
 - 弹窗提醒支持贪睡（延迟 5 分钟再次提醒）
+- 弹窗位置可设置（居中/左上/右上/左下/右下/中上/中下）
 - 系统托盘驻留，最小化后继续运行
 - 全局快捷键
 
+**主题与外观**
+- 亮色/暗色模式切换
+- 自定义渐变颜色（起始色/结束色）
+- 设置页面跟随主题色变化
+
 **其他**
-- 勿扰模式 —— 设置免打扰时段
+- 勿扰模式 —— 设置免打扰时段，迷你模式显示🌙空闲状态
 - 提示音 —— 不同提醒类型有不同音效
 - 今日统计 —— 记录每天的提醒触发和完成次数
+- 开机自启动
 
 ## 快捷键
 
@@ -89,7 +96,11 @@ Windows 系统额外使用 `winsound` 模块播放提示音（Python 内置，�
   "dnd_start": "22:00",
   "dnd_end": "08:00",
   "mini_mode": false,
-  "widget_size": 80
+  "widget_size": 100,
+  "theme": "light",
+  "gradient_start": null,
+  "gradient_end": null,
+  "popup_position": "center"
 }
 ```
 
@@ -102,6 +113,9 @@ Windows 系统额外使用 `winsound` 模块播放提示音（Python 内置，�
 | `dnd_start/dnd_end` | 勿扰时段（24小时制） |
 | `mini_mode` | 启动时是否为迷你模式 |
 | `widget_size` | 迷你模式悬浮球大小（60-200） |
+| `theme` | 主题模式（light/dark） |
+| `gradient_start/gradient_end` | 自定义渐变颜色（RGB数组） |
+| `popup_position` | 弹窗位置（center/top_left/top_right/bottom_left/bottom_right/top_center/bottom_center） |
 
 ## 使用方式
 
@@ -111,3 +125,7 @@ Windows 系统额外使用 `winsound` 模块播放提示音（Python 内置，�
 4. **右键**打开菜单（暂停、切换模式、勿扰、统计、设置、退出）
 5. 迷你模式下可拖动滑条调整悬浮球大小
 6. 提醒触发时弹出渐变弹窗，可点击关闭或贪睡
+
+## 作者
+
+**Bhands** · v1.1
