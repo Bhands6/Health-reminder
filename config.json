@@ -1,30 +1,26 @@
 {
   "eye_care": {
     "enabled": true,
-    "interval": 1
+    "interval": 20
   },
   "rest": {
     "enabled": false,
-    "interval": 2
+    "interval": 45
   },
   "water": {
     "enabled": false,
-    "interval": 3
+    "interval": 30
   },
-  "sound": true,
+  "sound": false,
   "auto_start": false,
-  "custom": [
-    {
-      "name": "喝咖啡",
-      "icon": "☕",
-      "message": "该喝咖啡了",
-      "interval": 1,
-      "enabled": false
-    }
-  ],
+  "custom": [],
   "dnd_enabled": false,
   "dnd_start": "22:00",
   "dnd_end": "08:00",
   "mini_mode": true,
-  "widget_size": 190
+  "widget_size": 100,
+  "theme": "light",
+  "gradient_start": null,
+  "gradient_end": null,
+  "popup_position": "center"
 }
