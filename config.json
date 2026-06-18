@@ -9,7 +9,7 @@
   },
   "water": {
     "enabled": false,
-    "interval": 30
+    "interval": 69
   },
   "sound": false,
   "auto_start": false,
@@ -18,7 +18,7 @@
   "dnd_start": "22:00",
   "dnd_end": "08:00",
   "mini_mode": true,
-  "widget_size": 100,
+  "widget_size": 120,
   "theme": "light",
   "gradient_start": null,
   "gradient_end": null,

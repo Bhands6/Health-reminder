@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from PyQt5.QtWidgets import (
     QWidget, QApplication, QMenu, QAction, QSystemTrayIcon,
     QDesktopWidget, QShortcut, QMessageBox, QDialog,
+    QSlider, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidgetAction, QSpinBox,
 )
 from PyQt5.QtCore import Qt, QTimer, QPoint, QSize
 from PyQt5.QtGui import (
@@ -366,11 +367,65 @@ class FloatingWidget(QWidget):
 
         # 悬浮球大小（仅迷你模式）
         if self.mini_mode:
-            size_menu = menu.addMenu("⭕ 悬浮球大小")
-            for s in [60, 80, 100, 120, 150, 180]:
-                act = QAction(f"{s}px", self)
-                act.triggered.connect(lambda _, sz=s: self.set_widget_size(sz))
-                size_menu.addAction(act)
+            title_action = QAction("⭕ 悬浮球大小", self)
+            title_action.setEnabled(False)
+            menu.addAction(title_action)
+
+            slider_widget = QWidget()
+            slider_widget.setStyleSheet("background: transparent; border: none;")
+            sw_lay = QVBoxLayout(slider_widget)
+            sw_lay.setContentsMargins(16, 2, 16, 6)
+            sw_lay.setSpacing(4)
+
+            self._size_slider = QSlider(Qt.Horizontal)
+            self._size_slider.setRange(60, 180)
+            self._size_slider.setValue(self.config.get("widget_size", 100))
+            self._size_slider.setStyleSheet("""
+                QSlider::groove:horizontal {
+                    height: 6px; background: rgba(200,180,255,0.15);
+                    border-radius: 3px;
+                }
+                QSlider::handle:horizontal {
+                    width: 16px; height: 16px; margin: -5px 0;
+                    background: rgba(102,126,234,0.8);
+                    border-radius: 8px;
+                }
+                QSlider::handle:horizontal:hover {
+                    background: rgba(102,126,234,1);
+                }
+            """)
+
+            self._size_spin = QSpinBox()
+            self._size_spin.setRange(60, 180)
+            self._size_spin.setValue(self.config.get("widget_size", 100))
+            self._size_spin.setSuffix(" px")
+            self._size_spin.setFixedWidth(80)
+            self._size_spin.setAlignment(Qt.AlignCenter)
+            self._size_spin.setStyleSheet("""
+                QSpinBox {
+                    background: rgba(200,180,255,0.1); color: rgba(200,180,255,0.9);
+                    border: 1px solid rgba(200,180,255,0.2); border-radius: 6px;
+                    font-size: 12px; padding: 2px;
+                }
+                QSpinBox::up-button, QSpinBox::down-button {
+                    width: 16px; border: none;
+                }
+            """)
+
+            self._size_slider.valueChanged.connect(self._on_slider_change)
+            self._size_spin.valueChanged.connect(self._on_spin_change)
+
+            sw_lay.addWidget(self._size_slider)
+
+            spin_row = QHBoxLayout()
+            spin_row.addStretch()
+            spin_row.addWidget(self._size_spin)
+            spin_row.addStretch()
+            sw_lay.addLayout(spin_row)
+
+            slider_action = QWidgetAction(self)
+            slider_action.setDefaultWidget(slider_widget)
+            menu.addAction(slider_action)
 
         menu.addSeparator()
 
@@ -411,6 +466,18 @@ class FloatingWidget(QWidget):
         save_config(self.config)
         self.update_size()
         self.update()
+
+    def _on_slider_change(self, v):
+        self._size_spin.blockSignals(True)
+        self._size_spin.setValue(v)
+        self._size_spin.blockSignals(False)
+        self.set_widget_size(v)
+
+    def _on_spin_change(self, v):
+        self._size_slider.blockSignals(True)
+        self._size_slider.setValue(v)
+        self._size_slider.blockSignals(False)
+        self.set_widget_size(v)
 
     def show_stats(self):
         today_stats = get_today_stats()
