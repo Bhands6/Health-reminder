@@ -11,13 +11,17 @@ IS_MAC = platform.system() == "Darwin"
 FONT_EMOJI = "Apple Color Emoji" if IS_MAC else "Segoe UI Emoji"
 FONT_UI = "PingFang SC" if IS_MAC else "Microsoft YaHei"
 
+# 项目根目录
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # 文件路径
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
+BASE_DIR = os.path.join(PROJECT_ROOT, "assets")
+APP_ICON = os.path.join(BASE_DIR, "app_icon.ico")
 CHECK_ICON = os.path.join(BASE_DIR, "checkmark.png")
 ARROW_UP_ICON = os.path.join(BASE_DIR, "arrow_up.svg")
 ARROW_DOWN_ICON = os.path.join(BASE_DIR, "arrow_down.svg")
-STATS_FILE = os.path.join(BASE_DIR, "stats.json")
+CONFIG_FILE = os.path.join(PROJECT_ROOT, "data", "config.json")
+STATS_FILE = os.path.join(PROJECT_ROOT, "data", "stats.json")
 
 # 默认配置
 DEFAULT_CONFIG = {
