@@ -211,6 +211,6 @@ pyinstaller 健康提醒.spec
 
 ## 作者
 
-**Bhands** · v2.0
+**Bhands** · v3.0
 
 GitHub: [Bhands6/Health-reminder](https://github.com/Bhands6/Health-reminder)
