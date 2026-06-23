@@ -17,7 +17,7 @@ from PyQt5.QtGui import (
 )
 
 from constants import (
-    THEME, BUILTIN_REMINDERS, CUSTOM_COLORS, FONT_EMOJI, FONT_UI,
+    THEME, BUILTIN_REMINDERS, CUSTOM_COLORS, FONT_EMOJI, FONT_UI, APP_ICON,
 )
 from utils import (
     load_config, save_config, record_stat, get_today_stats,
@@ -27,6 +27,7 @@ from ui.widgets import (
     draw_progress_ring, draw_closed_eyes, draw_closed_rest, draw_closed_water,
 )
 from ui.popup import ReminderPopup
+from ui.warm_tips import show_warm_tips
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class FloatingWidget(QWidget):
         self.init_timers()
         self.init_tray()
         self.init_shortcuts()
+        
         logger.info("FloatingWidget initialized")
 
     def init_ui(self):
@@ -297,7 +299,7 @@ class FloatingWidget(QWidget):
         # 右下角提示
         painter.setFont(QFont(FONT_UI, 8))
         painter.setPen(QColor(255, 255, 255, 80))
-        painter.drawText(15, self.height() - 22, self.width() - 20, 15, Qt.AlignLeft, "右键菜单 | 双击设置")
+        painter.drawText(15, self.height() - 22, self.width() - 20, 15, Qt.AlignLeft, "单击温馨提示 | 双击设置 | 右键菜单")
 
     # ==================== 交互 ====================
 
@@ -307,16 +309,67 @@ class FloatingWidget(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drag_pos = event.globalPos() - self.frameGeometry().topLeft()
+            self._drag_start_pos = event.globalPos()
+            self._is_dragging = False
             event.accept()
 
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.LeftButton:
-            self.move(event.globalPos() - self.drag_pos)
+            # 判断是否在拖动（移动超过5像素）
+            if not self._is_dragging:
+                delta = event.globalPos() - self._drag_start_pos
+                if abs(delta.x()) > 5 or abs(delta.y()) > 5:
+                    self._is_dragging = True
+            if self._is_dragging:
+                self.move(event.globalPos() - self.drag_pos)
             event.accept()
+    
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # 只有不是拖动时才触发点击
+            if not self._is_dragging:
+                # 使用定时器区分单击和双击
+                if not hasattr(self, '_click_timer'):
+                    self._click_timer = QTimer(self)
+                    self._click_timer.setSingleShot(True)
+                    self._click_timer.timeout.connect(self._on_single_click)
+                    self._click_count = 0
+                
+                self._click_count += 1
+                
+                # 如果是第一次点击，启动定时器等待可能的双击
+                if self._click_count == 1:
+                    self._click_timer.start(250)  # 250ms内如果没有第二次点击，则认为是单击
+            event.accept()
+        elif event.button() == Qt.RightButton:
+            # 右键显示菜单
+            self.contextMenuEvent(event)
+    
 
+    
+
+    
+
+    
+    def _on_single_click(self):
+        self._click_count = 0
+        # 单击显示温馨提醒
+        warm_tip_count = self.config.get("warm_tip_count", 100)
+        # mini模式下使用爱心模式
+        heart_mode = self.mini_mode
+        self._warm_tip_controller = show_warm_tips(warm_tip_count, heart_mode=heart_mode)
+    
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
+            # 双击打开设置窗口
+            if hasattr(self, '_click_timer'):
+                self._click_timer.stop()
+                self._click_count = 0
             self.open_settings()
+
+
+    
+
 
     def enterEvent(self, event):
         self.hovered = True
@@ -364,6 +417,11 @@ class FloatingWidget(QWidget):
         mini_action = QAction(mini_text, self)
         mini_action.triggered.connect(self.toggle_mini_mode)
         menu.addAction(mini_action)
+        
+        # 单击温馨提示
+        warm_action = QAction("💝 单击温馨提示", self)
+        warm_action.triggered.connect(lambda: self._on_single_click())
+        menu.addAction(warm_action)
 
         # 悬浮球大小（仅迷你模式）
         if self.mini_mode:
@@ -429,6 +487,49 @@ class FloatingWidget(QWidget):
 
         menu.addSeparator()
 
+        # 温馨提醒窗口数量设置
+        warm_tip_title = QAction("💝 温馨提醒数量", self)
+        warm_tip_title.setEnabled(False)
+        menu.addAction(warm_tip_title)
+        
+        # 创建输入框（编辑后直接保存）
+        warm_tip_widget = QWidget()
+        warm_tip_widget.setStyleSheet("background: transparent; border: none;")
+        warm_tip_layout = QHBoxLayout(warm_tip_widget)
+        warm_tip_layout.setContentsMargins(10, 5, 10, 5)
+        
+        # 数值输入框
+        warm_tip_spin = QSpinBox()
+        warm_tip_spin.setRange(10, 500)
+        warm_tip_spin.setValue(self.config.get("warm_tip_count", 100))
+        warm_tip_spin.setSuffix(" 个")
+        warm_tip_spin.setFixedWidth(80)
+        warm_tip_spin.setStyleSheet("""
+            QSpinBox {
+                background: rgba(200,180,255,0.1);
+                color: rgba(200,180,255,0.9);
+                border: 1px solid rgba(200,180,255,0.2);
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 12px;
+            }
+        """)
+        warm_tip_layout.addWidget(warm_tip_spin)
+        
+        # 编辑完成后直接保存
+        def save_warm_tip_count():
+            count = warm_tip_spin.value()
+            self.config["warm_tip_count"] = count
+            save_config(self.config)
+        
+        warm_tip_spin.editingFinished.connect(save_warm_tip_count)
+        
+        warm_tip_action = QWidgetAction(self)
+        warm_tip_action.setDefaultWidget(warm_tip_widget)
+        menu.addAction(warm_tip_action)
+
+        menu.addSeparator()
+
         # 今日统计
         stats_action = QAction("📊 今日统计", self)
         stats_action.triggered.connect(self.show_stats)
@@ -460,6 +561,7 @@ class FloatingWidget(QWidget):
         save_config(self.config)
         self.update_size()
         self.update()
+        
 
     def set_widget_size(self, size):
         self.config["widget_size"] = size
@@ -509,14 +611,7 @@ class FloatingWidget(QWidget):
             self.reinit_timers()
 
     def init_tray(self):
-        pixmap = QPixmap(32, 32)
-        pixmap.fill(QColor(*THEME["primary"]))
-        painter = QPainter(pixmap)
-        painter.setPen(QColor(255, 255, 255))
-        painter.setFont(QFont(FONT_EMOJI, 16))
-        painter.drawText(0, 0, 32, 32, Qt.AlignCenter, "💚")
-        painter.end()
-        icon = QIcon(pixmap)
+        icon = QIcon(APP_ICON)
 
         self.tray = QSystemTrayIcon(icon, self)
         self.tray.setToolTip("健康提醒")

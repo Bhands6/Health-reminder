@@ -7,12 +7,6 @@ __pycache__/
 build/
 dist/
 
-# Debug screenshots
-*.png
-
-# Stats (runtime data)
-stats.json
-
 # IDE
 .vscode/
 .idea/
@@ -24,3 +18,10 @@ Thumbs.db
 # Logs
 logs/
 
+# Runtime data
+data/config.json
+data/stats.json
+
+# Temp scripts
+_*.py
+_*.ps1

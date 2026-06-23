@@ -10,7 +10,7 @@ import os
 import logging
 
 # 将项目根目录加入 sys.path，确保模块导入正常
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
 
 from constants import IS_WINDOWS, apply_theme, apply_gradient_colors
 from utils import (

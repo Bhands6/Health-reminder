@@ -20,20 +20,27 @@ class ReminderPopup(QWidget):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(350, 130)
+        self.setFixedSize(350, 160)
 
-        # 定位
+        # 定位（添加偏移量避免重叠）
         screen = QApplication.primaryScreen().geometry()
         margin = 20
         w, h = self.width(), self.height()
+        
+        # 使用类变量跟踪弹窗数量，添加偏移量
+        if not hasattr(ReminderPopup, '_popup_count'):
+            ReminderPopup._popup_count = 0
+        ReminderPopup._popup_count += 1
+        offset = (ReminderPopup._popup_count - 1) * 30  # 每个弹窗偏移30像素
+        
         pos_map = {
-            "center": ((screen.width() - w) // 2, (screen.height() - h) // 2),
-            "top_left": (margin, margin),
-            "top_right": (screen.width() - w - margin, margin),
-            "bottom_left": (margin, screen.height() - h - margin),
-            "bottom_right": (screen.width() - w - margin, screen.height() - h - margin),
-            "top_center": ((screen.width() - w) // 2, margin),
-            "bottom_center": ((screen.width() - w) // 2, screen.height() - h - margin),
+            "center": ((screen.width() - w) // 2 + offset, (screen.height() - h) // 2 + offset),
+            "top_left": (margin + offset, margin + offset),
+            "top_right": (screen.width() - w - margin - offset, margin + offset),
+            "bottom_left": (margin + offset, screen.height() - h - margin - offset),
+            "bottom_right": (screen.width() - w - margin - offset, screen.height() - h - margin - offset),
+            "top_center": ((screen.width() - w) // 2 + offset, margin + offset),
+            "bottom_center": ((screen.width() - w) // 2 + offset, screen.height() - h - margin - offset),
         }
         x, y = pos_map.get(position, pos_map["center"])
         self.move(x, y)
@@ -75,9 +82,9 @@ class ReminderPopup(QWidget):
         if self.interval < 5:
             self.snooze_btn = None
             return
-        # 贪睡按钮
+        # 贪睡按钮 - 放在底部
         self.snooze_btn = QPushButton("💤 延迟 5 分钟", self)
-        self.snooze_btn.setGeometry(self.width() - 180, self.height() - 55, 120, 32)
+        self.snooze_btn.setGeometry(self.width() - 180, self.height() - 40, 120, 32)
         self.snooze_btn.setStyleSheet("""
             QPushButton {
                 background: rgba(255,255,255,0.25);
@@ -93,9 +100,9 @@ class ReminderPopup(QWidget):
         """)
         self.snooze_btn.clicked.connect(self.snooze)
 
-        # 关闭按钮
+        # 关闭按钮 - 放在底部
         self.close_btn = QPushButton("✓ 知道了", self)
-        self.close_btn.setGeometry(self.width() - 310, self.height() - 55, 100, 32)
+        self.close_btn.setGeometry(self.width() - 310, self.height() - 40, 100, 32)
         self.close_btn.setStyleSheet("""
             QPushButton {
                 background: rgba(255,255,255,0.25);
@@ -173,7 +180,7 @@ class ReminderPopup(QWidget):
         painter.setPen(QColor(255, 255, 255))
         painter.setFont(QFont(FONT_UI, 14, QFont.Bold))
         text = self.message[2:] if len(self.message) > 2 else self.message
-        painter.drawText(105, 35, self.width() - 130, 80, Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap, text)
+        painter.drawText(105, 25, self.width() - 130, 70, Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap, text)
 
         # 底部进度条
         progress = min(1.0, self.elapsed_time / self.total_time)

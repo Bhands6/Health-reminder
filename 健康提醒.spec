@@ -5,11 +5,8 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('arrow_down.svg', '.'),
-        ('arrow_up.svg', '.'),
-    ],
-    hiddenimports=[],
+    datas=[('assets', 'assets'), ('src', 'src')],
+    hiddenimports=['platform', 'os', 'sys', 'json', 'logging', 'datetime', 'typing', 'ctypes', 'winreg', 'winsound', 'plyer'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -26,7 +23,6 @@ exe = EXE(
     a.datas,
     [],
     name='健康提醒',
-    icon='D:/A_Claude_MyCodeProject/health-reminder/app_icon.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['assets\\app_icon.ico'],
 )

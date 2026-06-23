@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """工具函数：配置读写、统计记录、自启动、提示音、勿扰判断"""
 
 import json
@@ -100,6 +100,7 @@ def _validate_config(config: dict) -> dict:
     validated["mini_mode"] = bool(config.get("mini_mode", False))
     validated["theme"] = config.get("theme", "light") if config.get("theme") in ("light", "dark") else "light"
     validated["popup_position"] = config.get("popup_position", "center")
+    validated["warm_tip_count"] = max(10, min(500, int(config.get("warm_tip_count", 100))))
     validated["widget_size"] = max(60, min(200, int(config.get("widget_size", 100))))
 
     # 时间格式验证
@@ -275,3 +276,4 @@ def is_dnd_active(config: dict) -> bool:
     except (ValueError, TypeError) as e:
         logger.error("DND time parse error: %s", e)
         return False
+

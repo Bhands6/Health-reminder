@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """常量定义：主题、颜色、声音、内置提醒配置等"""
 
 import platform
@@ -36,6 +36,7 @@ DEFAULT_CONFIG = {
     "gradient_start": None,
     "gradient_end": None,
     "popup_position": "center",
+    "warm_tip_count": 100,
 }
 
 # 内置提醒配置
@@ -136,4 +137,5 @@ POPUP_POSITION_MAP = {
     "top_center": "中上",
     "bottom_center": "中下",
 }
+
 
