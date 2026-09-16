@@ -25,3 +25,6 @@ data/stats.json
 # Temp scripts
 _*.py
 _*.ps1
+
+# WorkBuddy workspace (assistant memory / session data)
+.workbuddy/
