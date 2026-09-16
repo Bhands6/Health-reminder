@@ -16,6 +16,11 @@ class ReminderPopup(QWidget):
     """提醒弹窗"""
     snooze_signal = pyqtSignal(str, int)  # key, minutes
 
+    # 当前存活的弹窗数量（关闭时递减，避免偏移无限累积）
+    _popup_count = 0
+    # 最大堆叠层数，超出后回到起点重新排列
+    _MAX_STACK = 6
+
     def __init__(self, message, color, key="custom", interval=30, position="center", parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -27,11 +32,10 @@ class ReminderPopup(QWidget):
         margin = 20
         w, h = self.width(), self.height()
         
-        # 使用类变量跟踪弹窗数量，添加偏移量
-        if not hasattr(ReminderPopup, '_popup_count'):
-            ReminderPopup._popup_count = 0
+        # 按当前存活弹窗数计算偏移，堆叠层数封顶后回绕，避免超出屏幕
         ReminderPopup._popup_count += 1
-        offset = (ReminderPopup._popup_count - 1) * 30  # 每个弹窗偏移30像素
+        stack = (ReminderPopup._popup_count - 1) % ReminderPopup._MAX_STACK
+        offset = stack * 30  # 每个弹窗偏移30像素
         
         pos_map = {
             "center": ((screen.width() - w) // 2 + offset, (screen.height() - h) // 2 + offset),
@@ -53,6 +57,7 @@ class ReminderPopup(QWidget):
         self.total_time = 5000  # 5 秒自动关闭
         self.elapsed_time = 0
         self.is_snoozed = False
+        self._count_released = False  # 防止 closeEvent 重复递减计数
 
         # 渐变动画
         self.fade_timer = QTimer(self)
@@ -146,6 +151,13 @@ class ReminderPopup(QWidget):
     def fade_out(self):
         """开始渐出"""
         self.fading_out = True
+
+    def closeEvent(self, event):
+        """关闭时释放弹窗计数，避免偏移量无限累积"""
+        if not self._count_released:
+            self._count_released = True
+            ReminderPopup._popup_count = max(0, ReminderPopup._popup_count - 1)
+        super().closeEvent(event)
 
     def update_progress(self):
         """更新进度"""
