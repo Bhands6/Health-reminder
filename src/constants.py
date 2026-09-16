@@ -3,6 +3,7 @@
 
 import platform
 import os
+import sys
 
 IS_WINDOWS = platform.system() == "Windows"
 IS_MAC = platform.system() == "Darwin"
@@ -11,17 +12,33 @@ IS_MAC = platform.system() == "Darwin"
 FONT_EMOJI = "Apple Color Emoji" if IS_MAC else "Segoe UI Emoji"
 FONT_UI = "PingFang SC" if IS_MAC else "Microsoft YaHei"
 
-# 项目根目录
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 两个根目录要分开，否则打包后配置无法持久化：
+#   RESOURCE_DIR —— 只读资源（assets）。打包后位于 PyInstaller 临时解压目录 _MEIPASS
+#   DATA_ROOT    —— 可写数据（config / stats / logs）。打包后取 exe 所在目录，重启后仍在
+if getattr(sys, "frozen", False):
+    RESOURCE_DIR = getattr(
+        sys, "_MEIPASS", os.path.dirname(os.path.abspath(sys.executable))
+    )
+    DATA_ROOT = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    RESOURCE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DATA_ROOT = RESOURCE_DIR
 
-# 文件路径
-BASE_DIR = os.path.join(PROJECT_ROOT, "assets")
+# 兼容既有引用：语义等同于"可写数据根目录"
+PROJECT_ROOT = DATA_ROOT
+
+# 资源路径
+BASE_DIR = os.path.join(RESOURCE_DIR, "assets")
 APP_ICON = os.path.join(BASE_DIR, "app_icon.ico")
 CHECK_ICON = os.path.join(BASE_DIR, "checkmark.png")
 ARROW_UP_ICON = os.path.join(BASE_DIR, "arrow_up.svg")
 ARROW_DOWN_ICON = os.path.join(BASE_DIR, "arrow_down.svg")
-CONFIG_FILE = os.path.join(PROJECT_ROOT, "data", "config.json")
-STATS_FILE = os.path.join(PROJECT_ROOT, "data", "stats.json")
+
+# 数据路径
+LOG_DIR = os.path.join(DATA_ROOT, "logs")
+DATA_DIR = os.path.join(DATA_ROOT, "data")
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+STATS_FILE = os.path.join(DATA_DIR, "stats.json")
 
 # 默认配置
 DEFAULT_CONFIG = {

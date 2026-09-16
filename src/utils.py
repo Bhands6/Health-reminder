@@ -8,8 +8,8 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from constants import (
-    CONFIG_FILE, DEFAULT_CONFIG, STATS_FILE,
-    IS_WINDOWS, SOUND_PROFILES, THEME,
+    CONFIG_FILE, DATA_DIR, DEFAULT_CONFIG, STATS_FILE,
+    IS_WINDOWS, SOUND_PROFILES,
 )
 
 logger = logging.getLogger(__name__)
@@ -160,6 +160,8 @@ def save_config(config: dict) -> None:
     try:
         # 写入前验证
         config = _validate_config(config)
+        # data 目录可能不存在（首次运行 / 打包后首次启动），必须确保存在
+        os.makedirs(DATA_DIR, exist_ok=True)
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
         logger.debug("Config saved")
@@ -183,6 +185,7 @@ def load_stats() -> dict:
 def save_stats(stats: dict) -> None:
     """保存统计数据"""
     try:
+        os.makedirs(DATA_DIR, exist_ok=True)
         with open(STATS_FILE, "w", encoding="utf-8") as f:
             json.dump(stats, f, ensure_ascii=False, indent=2)
     except IOError as e:
