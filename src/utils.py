@@ -54,31 +54,30 @@ def create_checkmark_icon() -> None:
         logger.warning("Failed to create checkmark icon: %s", e)
 
 
+# 箭头图标内容模板。Qt 的 QPixmap.save 不支持写 SVG（可写格式只有 png/bmp/jpg 等位图），
+# 所以这里直接写 SVG 文本，内容与 assets/ 中已有文件一致。
+_ARROW_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6" viewBox="0 0 8 6">'
+    '<polygon points="{points}" fill="#c8b4ff" fill-opacity="0.85"/></svg>'
+)
+
+
 def create_arrow_icons() -> None:
     """创建箭头图标（如果文件不存在）"""
     from constants import ARROW_UP_ICON, ARROW_DOWN_ICON
-    try:
-        from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen
-        from PyQt5.QtCore import Qt
-        for path, up in [(ARROW_UP_ICON, True), (ARROW_DOWN_ICON, False)]:
-            if os.path.exists(path):
-                continue
-            pixmap = QPixmap(16, 16)
-            pixmap.fill(QColor(0, 0, 0, 0))
-            painter = QPainter(pixmap)
-            painter.setRenderHint(QPainter.Antialiasing)
-            painter.setPen(QPen(QColor(200, 180, 255, 200), 2, Qt.SolidLine, Qt.RoundCap))
-            if up:
-                painter.drawLine(4, 11, 8, 5)
-                painter.drawLine(8, 5, 12, 11)
-            else:
-                painter.drawLine(4, 5, 8, 11)
-                painter.drawLine(8, 11, 12, 5)
-            painter.end()
-            pixmap.save(path, "SVG")
+    icons = [
+        (ARROW_UP_ICON, "4,0 0,6 8,6"),
+        (ARROW_DOWN_ICON, "4,6 0,0 8,0"),
+    ]
+    for path, points in icons:
+        if os.path.exists(path):
+            continue
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(_ARROW_SVG.format(points=points))
             logger.debug("Created arrow icon: %s", path)
-    except Exception as e:
-        logger.warning("Failed to create arrow icons: %s", e)
+        except IOError as e:
+            logger.warning("Failed to create arrow icon %s: %s", path, e)
 
 
 # ==================== 配置读写 ====================
