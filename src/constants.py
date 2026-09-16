@@ -104,7 +104,8 @@ THEME_PRESETS = {
 }
 
 # 当前主题（可变全局状态）
-THEME = dict(THEME_PRESETS["dark"])
+# 初值跟随 DEFAULT_CONFIG["theme"]，避免与默认配置不一致
+THEME = dict(THEME_PRESETS[DEFAULT_CONFIG["theme"]])
 
 
 def apply_theme(theme_name: str) -> None:
