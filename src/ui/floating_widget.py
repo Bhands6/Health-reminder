@@ -357,7 +357,9 @@ class FloatingWidget(QWidget):
         warm_tip_count = self.config.get("warm_tip_count", 100)
         # mini模式下使用爱心模式
         heart_mode = self.mini_mode
-        self._warm_tip_controller = show_warm_tips(warm_tip_count, heart_mode=heart_mode)
+        self._warm_tip_controller = show_warm_tips(
+            warm_tip_count, heart_mode=heart_mode, parent=self
+        )
     
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -647,7 +649,7 @@ class FloatingWidget(QWidget):
             self.activateWindow()
 
     def closeEvent(self, event):
-        """å¿½ç¥å³é­äºä»¶ï¼é²æ­¢åºç¨éåº"""
+        """忽略关闭事件，防止应用退出"""
         event.ignore()
         self.hide()
 

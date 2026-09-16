@@ -279,9 +279,12 @@ class WarmTipController(QWidget):
             self.move(event.globalPos() - self.drag_pos)
 
 
-def show_warm_tips(count=50, heart_mode=False):
-    """显示温馨提醒（供外部调用）"""
-    controller = WarmTipController(heart_mode=heart_mode)
+def show_warm_tips(count=50, heart_mode=False, parent=None):
+    """显示温馨提醒（供外部调用）
+
+    parent: 宿主窗口，传入后控制器纳入 Qt 对象树，随宿主一起销毁
+    """
+    controller = WarmTipController(parent=parent, heart_mode=heart_mode)
     controller.total_windows = count
     controller.start()
     return controller
