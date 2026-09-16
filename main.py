@@ -1,6 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 """
-桌面健康提醒应用 v2.0
+桌面健康提醒应用 v3.0
 功能：护眼提醒、休息提醒、喝水提醒、自定义提醒、贪睡、勿扰、统计
 技术栈：Python + PyQt5 + plyer（支持 Windows / macOS）
 """
@@ -54,7 +54,7 @@ def main():
     if IS_WINDOWS:
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("健康提醒.V2.0")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("健康提醒.V3.0")
         except Exception:
             pass
 

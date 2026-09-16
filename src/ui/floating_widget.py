@@ -71,7 +71,7 @@ class FloatingWidget(QWidget):
 
     def update_size(self):
         if self.mini_mode:
-            size = self.config.get("widget_size", 80)
+            size = self.config.get("widget_size", 100)
             self.setFixedSize(size, size)
         else:
             self.setFixedSize(220, 120)
@@ -202,7 +202,7 @@ class FloatingWidget(QWidget):
             self._paint_full(painter)
 
     def _paint_mini(self, painter):
-        size = self.config.get("widget_size", 80)
+        size = self.config.get("widget_size", 100)
         shadow_offset = max(4, size // 12)
         circle_size = size - shadow_offset
         circle_r = circle_size // 2
@@ -458,7 +458,7 @@ class FloatingWidget(QWidget):
             sw_lay.setSpacing(4)
 
             self._size_slider = QSlider(Qt.Horizontal)
-            self._size_slider.setRange(60, 180)
+            self._size_slider.setRange(60, 200)
             self._size_slider.setValue(self.config.get("widget_size", 100))
             self._size_slider.setStyleSheet("""
                 QSlider::groove:horizontal {
@@ -476,7 +476,7 @@ class FloatingWidget(QWidget):
             """)
 
             self._size_spin = QSpinBox()
-            self._size_spin.setRange(60, 180)
+            self._size_spin.setRange(60, 200)
             self._size_spin.setValue(self.config.get("widget_size", 100))
             self._size_spin.setSuffix(" px")
             self._size_spin.setFixedWidth(80)

@@ -621,7 +621,7 @@ class SettingsDialog(QDialog):
         main_layout.addLayout(bottom)
 
         # 作者和版本号
-        footer_label = QLabel("Bhands  V2.0")
+        footer_label = QLabel("Bhands  V3.0")
         footer_label.setAlignment(Qt.AlignCenter)
         footer_label.setStyleSheet("font-size: 12px; color: rgba(200,180,255,0.7); border: none;")
         main_layout.addWidget(footer_label)
