@@ -82,33 +82,12 @@ class ReminderPopup(QWidget):
         self._create_buttons()
 
     def _create_buttons(self):
-        """创建贪睡和关闭按钮"""
-        # 间隔小于 5 分钟时隐藏贪睡按钮
-        if self.interval < 5:
-            self.snooze_btn = None
-            return
-        # 贪睡按钮 - 放在底部
-        self.snooze_btn = QPushButton("💤 延迟 5 分钟", self)
-        self.snooze_btn.setGeometry(self.width() - 180, self.height() - 40, 120, 32)
-        self.snooze_btn.setStyleSheet("""
-            QPushButton {
-                background: rgba(255,255,255,0.25);
-                color: white;
-                border: 1px solid rgba(255,255,255,0.4);
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: rgba(255,255,255,0.4);
-            }
-        """)
-        self.snooze_btn.clicked.connect(self.snooze)
+        """创建贪睡和关闭按钮
 
-        # 关闭按钮 - 放在底部
-        self.close_btn = QPushButton("✓ 知道了", self)
-        self.close_btn.setGeometry(self.width() - 310, self.height() - 40, 100, 32)
-        self.close_btn.setStyleSheet("""
+        「知道了」始终创建 —— 否则用户无法确认提醒，completed 统计也永远记不到。
+        间隔小于 5 分钟时贪睡（延迟 5 分钟）没有意义，只隐藏贪睡按钮。
+        """
+        btn_style = """
             QPushButton {
                 background: rgba(255,255,255,0.25);
                 color: white;
@@ -120,7 +99,24 @@ class ReminderPopup(QWidget):
             QPushButton:hover {
                 background: rgba(255,255,255,0.4);
             }
-        """)
+        """
+        btn_y = self.height() - 40
+
+        # 贪睡按钮
+        if self.interval >= 5:
+            self.snooze_btn = QPushButton("💤 延迟 5 分钟", self)
+            self.snooze_btn.setGeometry(self.width() - 180, btn_y, 120, 32)
+            self.snooze_btn.setStyleSheet(btn_style)
+            self.snooze_btn.clicked.connect(self.snooze)
+            close_x = self.width() - 310
+        else:
+            self.snooze_btn = None
+            close_x = (self.width() - 100) // 2  # 没有贪睡按钮时居中显示
+
+        # 关闭按钮
+        self.close_btn = QPushButton("✓ 知道了", self)
+        self.close_btn.setGeometry(close_x, btn_y, 100, 32)
+        self.close_btn.setStyleSheet(btn_style)
         self.close_btn.clicked.connect(self.acknowledge)
 
     def acknowledge(self):
