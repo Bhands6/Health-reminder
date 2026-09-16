@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """工具函数：配置读写、统计记录、自启动、提示音、勿扰判断"""
 
+import copy
 import json
 import logging
 import os
+import shutil
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict
 
 from constants import (
     CONFIG_FILE, DATA_DIR, DEFAULT_CONFIG, STATS_FILE,
@@ -84,7 +86,9 @@ def create_arrow_icons() -> None:
 
 def _validate_config(config: dict) -> dict:
     """验证并修复配置数据，确保类型和范围正确"""
-    validated = dict(DEFAULT_CONFIG)
+    # 必须深拷贝：浅拷贝会让嵌套 dict/list 与 DEFAULT_CONFIG 共享引用，
+    # 后续任何就地修改都会污染全局默认值
+    validated = copy.deepcopy(DEFAULT_CONFIG)
 
     for key in ("eye_care", "rest", "water"):
         if key in config and isinstance(config[key], dict):
@@ -136,19 +140,28 @@ def _validate_config(config: dict) -> dict:
 
 
 def load_config() -> dict:
-    """加载配置文件，不存在则创建默认配置"""
+    """加载配置文件，不存在或损坏则创建默认配置"""
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            # utf-8-sig：兼容带 BOM 的文件（记事本「另存为 UTF-8」会写入 BOM）。
+            # 用 utf-8 读取带 BOM 的文件会直接抛 JSONDecodeError，导致配置永远读不进来。
+            with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
                 config = json.load(f)
             config = _validate_config(config)
             logger.info("Config loaded from %s", CONFIG_FILE)
             return config
-        except (json.JSONDecodeError, IOError) as e:
+        except (json.JSONDecodeError, IOError, UnicodeDecodeError) as e:
             logger.error("Failed to load config: %s, using defaults", e)
+            # 解析失败先把原文件备份下来，避免用户配置被默认值直接覆盖且无从追溯
+            try:
+                backup = CONFIG_FILE + ".bak"
+                shutil.copyfile(CONFIG_FILE, backup)
+                logger.warning("Broken config backed up to %s", backup)
+            except IOError as be:
+                logger.warning("Failed to back up config: %s", be)
 
     # 创建默认配置
-    config = dict(DEFAULT_CONFIG)
+    config = copy.deepcopy(DEFAULT_CONFIG)
     save_config(config)
     logger.info("Created default config at %s", CONFIG_FILE)
     return config
