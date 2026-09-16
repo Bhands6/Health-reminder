@@ -120,18 +120,21 @@ class FloatingWidget(QWidget):
         self.init_timers()
 
     def trigger_reminder(self, key):
-        if self.paused:
-            return
-        if is_dnd_active(self.config):
-            return
-
         all_rem = self._get_all_reminders()
         if key not in all_rem:
             return
         info = all_rem[key]
 
+        # 先滚动下一次触发时间：暂停 / 勿扰期间也要滚动，
+        # 否则倒计时会一直停在 00:00、进度环保持满格
         interval = info["interval"] * 60 * 1000
         self.next_times[key] = datetime.now() + timedelta(milliseconds=interval)
+
+        if self.paused:
+            return
+        if is_dnd_active(self.config):
+            return
+
         record_stat(key, "triggered")
 
         # 播放提示音
@@ -161,6 +164,12 @@ class FloatingWidget(QWidget):
         """处理贪睡"""
         if key in self.timers:
             self.timers[key].stop()
+
+        # 回收上一次的贪睡定时器，避免反复贪睡时定时器对象越积越多
+        old_timer = self.snooze_timers.pop(key, None)
+        if old_timer is not None:
+            old_timer.stop()
+            old_timer.deleteLater()
 
         def _snooze_callback(k=key):
             if k in self.timers:
@@ -311,6 +320,7 @@ class FloatingWidget(QWidget):
             self.drag_pos = event.globalPos() - self.frameGeometry().topLeft()
             self._drag_start_pos = event.globalPos()
             self._is_dragging = False
+            self._suppress_click = False  # 每次按下都复位，避免上一次双击残留标记吞掉单击
             event.accept()
 
     def mouseMoveEvent(self, event):
@@ -326,6 +336,12 @@ class FloatingWidget(QWidget):
     
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
+            # 双击的第二次 release 紧跟在 DoubleClick 之后，
+            # 若继续处理会把单击定时器重新拉起来，导致「双击打开设置」的同时又弹出温馨提醒
+            if getattr(self, "_suppress_click", False):
+                self._suppress_click = False
+                event.accept()
+                return
             # 只有不是拖动时才触发点击
             if not self._is_dragging:
                 # 使用定时器区分单击和双击
@@ -353,7 +369,10 @@ class FloatingWidget(QWidget):
     
     def _on_single_click(self):
         self._click_count = 0
-        # 单击显示温馨提醒
+        # 先收掉上一批，否则连点会叠加出成百上千个窗口
+        old_controller = getattr(self, "_warm_tip_controller", None)
+        if old_controller is not None:
+            old_controller.close_all_windows()
         warm_tip_count = self.config.get("warm_tip_count", 100)
         # mini模式下使用爱心模式
         heart_mode = self.mini_mode
@@ -364,6 +383,7 @@ class FloatingWidget(QWidget):
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
             # 双击打开设置窗口
+            self._suppress_click = True  # 抑制紧随其后的第二次 release
             if hasattr(self, '_click_timer'):
                 self._click_timer.stop()
                 self._click_count = 0
