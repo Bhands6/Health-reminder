@@ -1,6 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 """设置面板：SettingsDialog（卡片式布局）+ CustomReminderDialog"""
 
+import copy
 import logging
 
 from PyQt5.QtWidgets import (
@@ -321,8 +322,14 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("设置")
         self.setMinimumSize(400, 500)
         self.resize(500, 800)
-        self.config = dict(config)  # 副本
+        # 深拷贝，保证「取消」时外部配置与全局主题都不受影响
+        self.config = copy.deepcopy(config)
         self.custom_items = [dict(item) for item in config.get("custom", [])]
+        # 记录打开面板时的主题状态，供 reject 回滚
+        self._origin_theme = config.get("theme", "light")
+        self._origin_gradient = (
+            config.get("gradient_start"), config.get("gradient_end")
+        )
 
         self._check_path = CHECK_ICON.replace("\\", "/")
         self._arrow_up_path = ARROW_UP_ICON.replace("\\", "/")
@@ -421,7 +428,18 @@ class SettingsDialog(QDialog):
         content_layout.addWidget(builtin_group)
 
         # ---- 自定义提醒分组 ----
-        self.builtin_layout = builtin_layout
+        custom_group = QGroupBox("➕ 自定义提醒")
+        custom_group_layout = QVBoxLayout(custom_group)
+        custom_group_layout.setSpacing(8)
+
+        # 提醒行放在独立容器中，重建时不会影响下方的「添加」按钮
+        self.custom_rows_widget = QWidget()
+        self.custom_rows_widget.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.custom_rows_widget.setStyleSheet("background: transparent;")
+        self.custom_layout = QVBoxLayout(self.custom_rows_widget)
+        self.custom_layout.setContentsMargins(0, 0, 0, 0)
+        self.custom_layout.setSpacing(6)
+        custom_group_layout.addWidget(self.custom_rows_widget)
 
         self.custom_checks = []
         self.custom_spins = []
@@ -441,7 +459,9 @@ class SettingsDialog(QDialog):
             }
         """)
         add_btn.clicked.connect(self._add_custom)
-        content_layout.addWidget(add_btn)
+        custom_group_layout.addWidget(add_btn)
+
+        content_layout.addWidget(custom_group)
 
         # ---- 勿扰模式分组 ----
         dnd_group = QGroupBox("🌙 勿扰模式")
@@ -626,14 +646,15 @@ class SettingsDialog(QDialog):
         theme = "dark" if checked else "light"
         self.config["gradient_start"] = self._grad_start_color
         self.config["gradient_end"] = self._grad_end_color
+        self.config["theme"] = theme
         apply_theme(theme)
         apply_gradient_colors(self.config)
-        self.config["theme"] = theme
         self._apply_style()
-        if self.parent():
-            self.parent().config["theme"] = theme
-            self.parent().update()
-        save_config(self.config)
+        # 仅做实时预览，不落盘；点「取消」时由 reject 还原
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "config"):
+            parent.config["theme"] = theme
+            parent.update()
 
     def _update_color_preview(self, label, color):
         r, g, b = color[0], color[1], color[2]
@@ -706,7 +727,7 @@ class SettingsDialog(QDialog):
 
             self.custom_btn_widgets.append(row)
             self.custom_containers.append(row)
-            self.builtin_layout.addWidget(row)
+            self.custom_layout.addWidget(row)
 
     def _add_custom(self):
         dialog = CustomReminderDialog(self)
@@ -804,9 +825,12 @@ class SettingsDialog(QDialog):
             self._rebuild_custom_rows()
 
     def _auto_save(self):
-        """自动保存（编辑完成时）"""
+        """编辑完成时把当前 UI 值收进对话框内部状态
+
+        刻意不落盘：写文件统一交给「保存」按钮，
+        否则改了输入框再点「取消」，改动其实已经写进磁盘了。
+        """
         self._collect_config()
-        save_config(self.config)
 
     def _collect_config(self):
         """收集当前 UI 状态到 config"""
@@ -841,6 +865,19 @@ class SettingsDialog(QDialog):
         set_autostart(self.config.get("auto_start", False))
         save_config(self.config)
         self.accept()
+
+    def reject(self):
+        """取消：丢弃未保存的改动，并把主题与渐变还原到打开面板时的状态"""
+        apply_theme(self._origin_theme)
+        apply_gradient_colors({
+            "gradient_start": self._origin_gradient[0],
+            "gradient_end": self._origin_gradient[1],
+        })
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "config"):
+            parent.config["theme"] = self._origin_theme
+            parent.update()
+        super().reject()
 
 
 
