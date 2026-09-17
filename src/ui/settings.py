@@ -26,7 +26,7 @@ from constants import (
 )
 from utils import save_config, set_autostart
 from constants import apply_theme, apply_gradient_colors
-from ui.widgets import ToggleSwitch, Stepper
+from ui.widgets import ToggleSwitch, Stepper, PillButton
 
 logger = logging.getLogger(__name__)
 
@@ -301,11 +301,11 @@ class CustomReminderDialog(QDialog):
 
         # 按钮
         btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("确定")
-        ok_btn.setObjectName("saveBtn")
+        ok_btn = PillButton("确定", kind="primary", radius=18)
+        ok_btn.setMinimumHeight(38)
         ok_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setObjectName("cancelBtn")
+        cancel_btn = PillButton("取消", kind="muted", radius=18)
+        cancel_btn.setMinimumHeight(38)
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
@@ -432,8 +432,7 @@ class SettingsDialog(QDialog):
         self.custom_containers = []
         self._rebuild_custom_rows()
 
-        add_btn = QPushButton("＋  添加自定义提醒")
-        add_btn.setObjectName("addBtn")
+        add_btn = PillButton("＋  添加自定义提醒", kind="dashed", radius=14)
         add_btn.clicked.connect(self._add_custom)
         custom_group_layout.addWidget(add_btn)
 
@@ -516,8 +515,7 @@ class SettingsDialog(QDialog):
         grad_lay.addWidget(self._grad_end_preview)
 
         grad_lay.addStretch()
-        reset_btn = QPushButton("重置")
-        reset_btn.setObjectName("resetBtn")
+        reset_btn = PillButton("重置", kind="muted", radius=9)
         reset_btn.setFixedSize(52, 28)
         reset_btn.setToolTip("恢复主题默认颜色")
         reset_btn.clicked.connect(self._reset_gradient_colors)
@@ -540,11 +538,11 @@ class SettingsDialog(QDialog):
         # 底部按钮：取消（左，次级）/ 保存（右，渐变主按钮），等宽
         bottom = QHBoxLayout()
         bottom.setSpacing(12)
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setObjectName("cancelBtn")
+        cancel_btn = PillButton("取消", kind="muted", radius=21)
+        cancel_btn.setMinimumHeight(44)
         cancel_btn.clicked.connect(self.reject)
-        save_btn = QPushButton("保存")
-        save_btn.setObjectName("saveBtn")
+        save_btn = PillButton("保存", kind="primary", radius=21)
+        save_btn.setMinimumHeight(44)
         save_btn.clicked.connect(self.save)
         bottom.addWidget(cancel_btn, 1)
         bottom.addWidget(save_btn, 1)
@@ -670,16 +668,14 @@ class SettingsDialog(QDialog):
             self.custom_spins.append(spin)
             row_lay.addWidget(spin)
 
-            edit_btn = QPushButton("✏")
+            edit_btn = PillButton("✏", kind="muted", radius=10)
             edit_btn.setFixedSize(34, 34)
-            edit_btn.setObjectName("editBtn")
             edit_btn.setToolTip("编辑")
             edit_btn.clicked.connect(lambda _, x=i: self._edit_custom(x))
             row_lay.addWidget(edit_btn)
 
-            del_btn = QPushButton("✕")
+            del_btn = PillButton("✕", kind="danger", radius=10)
             del_btn.setFixedSize(34, 34)
-            del_btn.setObjectName("delBtn")
             del_btn.setToolTip("删除")
             del_btn.clicked.connect(lambda _, x=i: self._del_custom(x))
             row_lay.addWidget(del_btn)
@@ -754,32 +750,13 @@ class SettingsDialog(QDialog):
         btn_lay.setSpacing(16)
         btn_lay.addStretch()
 
-        yes_btn = QPushButton("确定")
+        yes_btn = PillButton("确定", kind="primary", radius=18)
         yes_btn.setFixedSize(100, 36)
-        yes_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #8B5CF6, stop:1 #2DD4BF);
-                color: white; border: 1px solid transparent;
-                border-radius: 18px; font-size: 14px; font-weight: bold;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #9D70F8, stop:1 #3EDCCA);
-            }
-        """)
         yes_btn.clicked.connect(dlg.accept)
         btn_lay.addWidget(yes_btn)
 
-        no_btn = QPushButton("取消")
+        no_btn = PillButton("取消", kind="muted", radius=18)
         no_btn.setFixedSize(100, 36)
-        no_btn.setStyleSheet("""
-            QPushButton {
-                background: rgba(255,255,255,0.08); color: rgba(226,222,245,0.85); border: 1px solid transparent;
-                border-radius: 18px; font-size: 14px;
-            }
-            QPushButton:hover { background: rgba(255,255,255,0.16); }
-        """)
         no_btn.clicked.connect(dlg.reject)
         btn_lay.addWidget(no_btn)
         btn_lay.addStretch()

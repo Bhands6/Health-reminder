@@ -6,10 +6,10 @@ import time
 from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout
 from PyQt5.QtCore import (
     Qt, QPropertyAnimation, QEasingCurve, pyqtProperty, pyqtSignal,
-    QObject, QEvent, QSize,
+    QObject, QEvent, QSize, QRectF,
 )
 from PyQt5.QtGui import (
-    QColor, QPainter, QBrush, QPen, QFont, QRadialGradient,
+    QColor, QPainter, QBrush, QPen, QFont, QRadialGradient, QLinearGradient,
 )
 
 from constants import THEME, FONT_UI, FONT_EMOJI
@@ -78,6 +78,98 @@ class ToggleSwitch(QWidget):
         p.end()
 
 
+class PillButton(QPushButton):
+    """QPainter 自绘胶囊按钮。
+
+    Qt QSS 的 border:none / border:transparent 在真机不裁剪圆角背景（直角实锤），
+    观感按钮一律用本类自绘，不再依赖 QSS 圆角。
+    kind: primary=紫→青渐变(白字) / muted=中性灰 / danger=红调 / dashed=虚线框
+    颜色随主题深浅自适应（THEME.bg_start 平均亮度）。
+    """
+    def __init__(self, text="", parent=None, kind="muted", radius=21):
+        super().__init__(text, parent)
+        self._kind = kind
+        self._radius = radius
+        self._hover = False
+        self._pressed = False
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet("background: transparent; border: none;")
+        self.setMinimumHeight(28)
+
+    def enterEvent(self, event):
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        self._pressed = True
+        self.update()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._pressed = False
+        self.update()
+        super().mouseReleaseEvent(event)
+
+    def _is_dark(self):
+        # 依据渐变色实际亮度（primary+secondary 均值）——面板背景就是它俩的暗化版，
+        # bg_start 不跟随自定义渐变，不能用
+        p = THEME.get("primary", (102, 126, 234))
+        s = THEME.get("secondary", (118, 75, 162))
+        return (p[0] + p[1] + p[2] + s[0] + s[1] + s[2]) / 6 < 128
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        rect = QRectF(0.5, 0.5, self.width() - 1, self.height() - 1)
+        r = min(self._radius, self.height() / 2)
+        dark = self._is_dark()
+        if self._kind == "primary":
+            g = QLinearGradient(0, 0, self.width(), 0)
+            if self._pressed:
+                g.setColorAt(0, QColor(122, 76, 224))
+                g.setColorAt(1, QColor(38, 191, 170))
+            elif self._hover:
+                g.setColorAt(0, QColor(157, 112, 248))
+                g.setColorAt(1, QColor(62, 220, 202))
+            else:
+                g.setColorAt(0, QColor(139, 92, 246))
+                g.setColorAt(1, QColor(45, 212, 191))
+            p.setBrush(QBrush(g))
+            p.setPen(Qt.NoPen)
+        elif self._kind == "danger":
+            p.setBrush(QColor(244, 67, 54, 150 if (self._hover or self._pressed) else 80))
+            p.setPen(Qt.NoPen)
+        else:
+            if self._pressed:
+                p.setBrush(QColor(255, 255, 255, 42) if dark else QColor(80, 70, 150, 46))
+            elif self._hover:
+                p.setBrush(QColor(255, 255, 255, 30) if dark else QColor(80, 70, 150, 34))
+            else:
+                p.setBrush(QColor(255, 255, 255, 22) if dark else QColor(80, 70, 150, 24))
+            p.setPen(Qt.NoPen)
+        p.drawRoundedRect(rect, r, r)
+        if self._kind == "dashed":
+            pen = QPen(QColor(255, 255, 255, 75) if dark else QColor(80, 70, 150, 95), 1)
+            pen.setStyle(Qt.DashLine)
+            p.setPen(pen)
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(rect, r, r)
+        if self._kind == "primary":
+            p.setPen(QColor(255, 255, 255))
+        else:
+            p.setPen(QColor(239, 237, 251) if dark else QColor(47, 42, 86))
+        f = self.font()
+        f.setBold(self._kind == "primary")
+        p.setFont(f)
+        p.drawText(self.rect(), Qt.AlignCenter, self.text())
+
+
 class Stepper(QWidget):
     """水平步进器：「− 值 单位 +」胶囊（设置面板设计稿样式）
 
@@ -98,19 +190,15 @@ class Stepper(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(4, 2, 4, 2)
         lay.setSpacing(2)
-        self.minus_btn = QPushButton("−")
-        self.minus_btn.setObjectName("stepperBtn")
+        self.minus_btn = PillButton("−", kind="muted", radius=12)
         self.minus_btn.setFixedSize(24, 24)
-        self.minus_btn.setCursor(Qt.PointingHandCursor)
         self.minus_btn.clicked.connect(lambda: self.setValue(self._value - 1))
         self.value_label = QLabel()
         self.value_label.setObjectName("stepperValue")
         self.value_label.setAlignment(Qt.AlignCenter)
         self.value_label.setFixedWidth(64)
-        self.plus_btn = QPushButton("+")
-        self.plus_btn.setObjectName("stepperBtn")
+        self.plus_btn = PillButton("+", kind="muted", radius=12)
         self.plus_btn.setFixedSize(24, 24)
-        self.plus_btn.setCursor(Qt.PointingHandCursor)
         self.plus_btn.clicked.connect(lambda: self.setValue(self._value + 1))
         lay.addWidget(self.minus_btn)
         lay.addWidget(self.value_label)
