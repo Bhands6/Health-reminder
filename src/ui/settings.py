@@ -592,9 +592,10 @@ class SettingsDialog(QDialog):
         super().keyPressEvent(event)
 
     def _apply_style(self):
-        theme = self.config.get("theme", "light")
+        # 设置面板固定用设计稿深色卡片风（不随全局主题切换）——
+        # 全局主题/渐变色只控制悬浮窗与提醒弹窗，互不影响
         self.setStyleSheet(_build_dialog_style(
-            theme, self._check_path, self._arrow_up_path, self._arrow_down_path))
+            "dark", self._check_path, self._arrow_up_path, self._arrow_down_path))
 
     def _on_theme_toggle(self, checked):
         theme = "dark" if checked else "light"
@@ -603,8 +604,7 @@ class SettingsDialog(QDialog):
         self.config["theme"] = theme
         apply_theme(theme)
         apply_gradient_colors(self.config)
-        self._apply_style()
-        # 仅做实时预览，不落盘；点「取消」时由 reject 还原
+        # 面板自身固定深色设计稿风，不随主题重刷；主题只作用于悬浮窗/弹窗
         parent = self.parent()
         if parent is not None and hasattr(parent, "config"):
             parent.config["theme"] = theme
