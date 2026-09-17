@@ -44,7 +44,7 @@ _DIALOG_COLORS = {
         "text": "rgba(62,54,110,0.85)", "text_full": "#2F2A56",
         "row_bg": "rgba(255,255,255,0.72)", "row_bg_h": "rgba(255,255,255,0.95)",
         "row_border": "rgba(80,70,150,0.10)",
-        "host_bg": "rgba(80,70,150,0.08)", "host_btn_h": "rgba(80,70,150,0.14)",
+        "host_bg": "rgba(80,70,150,0.13)", "host_btn_h": "rgba(80,70,150,0.22)",
         "stepper_text": "#2F2A56",
         "grp_title": "rgba(62,54,110,0.55)",
         "input_bg": "rgba(255,255,255,0.80)", "input_border": "rgba(80,70,150,0.15)",

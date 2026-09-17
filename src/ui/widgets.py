@@ -63,11 +63,13 @@ class ToggleSwitch(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        # 背景轨道（选中用强调色，未选中灰）
+        # 背景轨道（选中用强调色；未选中按主题深浅取灰——浅色下深灰过重）
         if self._checked:
             p.setBrush(QColor(*(self._accent or THEME.get("primary", (102, 126, 234)))))
         else:
-            p.setBrush(QColor(80, 80, 100))
+            bg = THEME.get("bg_start", (102, 126, 234))
+            is_dark = (bg[0] + bg[1] + bg[2]) / 3 < 128
+            p.setBrush(QColor(80, 80, 100) if is_dark else QColor(178, 178, 198))
         p.setPen(Qt.NoPen)
         p.drawRoundedRect(0, 0, self.width(), self.height(), 12, 12)
         # 圆形滑块
