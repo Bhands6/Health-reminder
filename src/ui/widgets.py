@@ -3,7 +3,7 @@
 
 import time
 
-from PyQt5.QtWidgets import QWidget, QLabel
+from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout
 from PyQt5.QtCore import (
     Qt, QPropertyAnimation, QEasingCurve, pyqtProperty, pyqtSignal,
     QObject, QEvent, QSize,
@@ -16,14 +16,15 @@ from constants import THEME, FONT_UI, FONT_EMOJI
 
 
 class ToggleSwitch(QWidget):
-    """自定义开关控件"""
+    """自定义开关控件（accent：可选强调色，默认主题主色）"""
     toggled = pyqtSignal(bool)
 
-    def __init__(self, checked=False, parent=None):
+    def __init__(self, checked=False, parent=None, accent=None):
         super().__init__(parent)
         self.setFixedSize(44, 24)
         self.setCursor(Qt.PointingHandCursor)
         self._checked = checked
+        self._accent = accent
         self._offset = 22.0 if checked else 2.0
         self._anim = QPropertyAnimation(self, b"offset", self)
         self._anim.setDuration(180)
@@ -62,9 +63,9 @@ class ToggleSwitch(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        # 背景轨道
+        # 背景轨道（选中用强调色，未选中灰）
         if self._checked:
-            p.setBrush(QColor(*THEME.get("primary", (102, 126, 234))))
+            p.setBrush(QColor(*(self._accent or THEME.get("primary", (102, 126, 234)))))
         else:
             p.setBrush(QColor(80, 80, 100))
         p.setPen(Qt.NoPen)
@@ -73,6 +74,65 @@ class ToggleSwitch(QWidget):
         p.setBrush(QColor(255, 255, 255))
         p.drawEllipse(int(self._offset), 2, 20, 20)
         p.end()
+
+
+class Stepper(QWidget):
+    """水平步进器：「− 值 单位 +」胶囊（设置面板设计稿样式）
+
+    接口对齐 QSpinBox 常用子集：value/setValue/setRange，
+    并提供 editingFinished 信号兼容原 spin.editingFinished 的自动收集逻辑。
+    """
+    valueChanged = pyqtSignal(int)
+    editingFinished = pyqtSignal()
+
+    def __init__(self, value=30, minimum=1, maximum=480, suffix=" 分钟", parent=None):
+        super().__init__(parent)
+        self._suffix = suffix
+        self._min = minimum
+        self._max = maximum
+        self._value = max(minimum, min(maximum, int(value)))
+        self.setObjectName("stepperHost")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(4, 2, 4, 2)
+        lay.setSpacing(2)
+        self.minus_btn = QPushButton("−")
+        self.minus_btn.setObjectName("stepperBtn")
+        self.minus_btn.setFixedSize(24, 24)
+        self.minus_btn.setCursor(Qt.PointingHandCursor)
+        self.minus_btn.clicked.connect(lambda: self.setValue(self._value - 1))
+        self.value_label = QLabel()
+        self.value_label.setObjectName("stepperValue")
+        self.value_label.setAlignment(Qt.AlignCenter)
+        self.value_label.setFixedWidth(64)
+        self.plus_btn = QPushButton("+")
+        self.plus_btn.setObjectName("stepperBtn")
+        self.plus_btn.setFixedSize(24, 24)
+        self.plus_btn.setCursor(Qt.PointingHandCursor)
+        self.plus_btn.clicked.connect(lambda: self.setValue(self._value + 1))
+        lay.addWidget(self.minus_btn)
+        lay.addWidget(self.value_label)
+        lay.addWidget(self.plus_btn)
+        self._sync()
+
+    def _sync(self):
+        self.value_label.setText(f"{self._value}{self._suffix}")
+
+    def value(self):
+        return self._value
+
+    def setValue(self, v):
+        v = max(self._min, min(self._max, int(v)))
+        if v == self._value:
+            return
+        self._value = v
+        self._sync()
+        self.valueChanged.emit(v)
+        self.editingFinished.emit()
+
+    def setRange(self, minimum, maximum):
+        self._min, self._max = minimum, maximum
+        self.setValue(self._value)
 
 
 class TooltipLabel(QLabel):
