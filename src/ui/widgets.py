@@ -202,6 +202,7 @@ class Stepper(QWidget):
         self.value_edit.setFixedWidth(44)
         self.value_edit.setValidator(QIntValidator(minimum, maximum, self))
         self.value_edit.editingFinished.connect(self._commit_edit)
+        self.value_edit.textChanged.connect(self._live_clamp)
         self.unit_label = QLabel(suffix.strip())
         self.unit_label.setObjectName("stepperUnit")
         self.plus_btn = PillButton("+", kind="muted", radius=12)
@@ -212,6 +213,19 @@ class Stepper(QWidget):
         lay.addWidget(self.unit_label)
         lay.addWidget(self.plus_btn)
         self._sync()
+
+    def _live_clamp(self, text):
+        """实时钳上限：输入一旦超过最大值立即变为最大数（无需提交）。
+
+        只钳上限；下限（如 0）允许保留中间态，提交时再收。setText 会再触发
+        textChanged，但 "480" 合法直接 return，不会死循环。
+        """
+        t = text.strip()
+        if not t.isdigit():
+            return
+        if int(t) > self._max:
+            self.value_edit.setText(str(self._max))
+            self.value_edit.setCursorPosition(len(str(self._max)))
 
     def _commit_edit(self):
         """编辑框提交：解析数字并 clamp；值未变时也补发 editingFinished（对齐 QSpinBox）"""
