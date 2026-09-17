@@ -109,11 +109,11 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
 
         /* ---- 水平步进器：「− 值 单位 +」胶囊 ---- */
         QWidget#stepperHost {
-            background: %(host_bg)s; border: none; border-radius: 15px;
+            background: %(host_bg)s; border: 1px solid transparent; border-radius: 15px;
         }
         QPushButton#stepperBtn {
             background: transparent; color: %(stepper_text)s;
-            border: none; border-radius: 12px;
+            border: 1px solid transparent; border-radius: 12px;
             font-size: 15px; font-weight: bold; padding: 0;
         }
         QPushButton#stepperBtn:hover { background: %(host_btn_h)s; }
@@ -145,7 +145,7 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         QPushButton#saveBtn {
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                 stop:0 #8B5CF6, stop:1 #2DD4BF);
-            color: #FFFFFF; border: none; border-radius: 21px;
+            color: #FFFFFF; border: 1px solid transparent; border-radius: 21px;
             padding: 12px 18px; font-size: 14px; font-weight: bold;
         }
         QPushButton#saveBtn:hover {
@@ -158,7 +158,7 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         }
         QPushButton#cancelBtn {
             background: %(cancel_bg)s; color: %(text_full)s;
-            border: none; border-radius: 21px;
+            border: 1px solid transparent; border-radius: 21px;
             padding: 12px 18px; font-size: 14px;
         }
         QPushButton#cancelBtn:hover { background: %(cancel_bg_h)s; }
@@ -174,18 +174,18 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         /* ---- 重置 / 编辑 / 删除 ---- */
         QPushButton#resetBtn {
             background: %(host_bg)s; color: %(text)s;
-            border: none; border-radius: 8px;
+            border: 1px solid transparent; border-radius: 8px;
             font-size: 11px; padding: 0;
         }
         QPushButton#resetBtn:hover { background: %(host_btn_h)s; color: %(text_full)s; }
         QPushButton#editBtn {
             background: %(host_bg)s; color: %(stepper_text)s;
-            border: none; border-radius: 10px; padding: 0; font-size: 15px;
+            border: 1px solid transparent; border-radius: 10px; padding: 0; font-size: 15px;
         }
         QPushButton#editBtn:hover { background: %(host_btn_h)s; }
         QPushButton#delBtn {
             background: rgba(244,67,54,0.12); color: rgba(244,67,54,0.9);
-            border: none; border-radius: 10px; padding: 0; font-size: 14px;
+            border: 1px solid transparent; border-radius: 10px; padding: 0; font-size: 14px;
         }
         QPushButton#delBtn:hover { background: rgba(244,67,54,0.32); color: #FFFFFF; }
 
@@ -203,7 +203,7 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         }
         QSpinBox:hover { border: 1px solid %(input_border_h)s; }
         QSpinBox::up-button, QSpinBox::down-button {
-            background: %(host_bg)s; border: none; border-radius: 3px;
+            background: %(host_bg)s; border: 1px solid transparent; border-radius: 3px;
         }
         QSpinBox::up-button:hover, QSpinBox::down-button:hover { background: %(host_btn_h)s; }
         QSpinBox::up-arrow { image: url(%(arrow_up)s); width: 14px; height: 14px; }
@@ -588,7 +588,7 @@ class SettingsDialog(QDialog):
         icon_lbl.setFixedSize(34, 34)
         icon_lbl.setAlignment(Qt.AlignCenter)
         icon_lbl.setStyleSheet(
-            f"background: {tint}; border: none; border-radius: 10px; font-size: 18px;")
+            f"background: {tint}; border: 1px solid transparent; border-radius: 10px; font-size: 18px;")
         lay.addWidget(icon_lbl)
         title_lbl = QLabel(title)
         title_lbl.setStyleSheet("background: transparent; border: none;")
@@ -760,7 +760,7 @@ class SettingsDialog(QDialog):
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #8B5CF6, stop:1 #2DD4BF);
-                color: white; border: none;
+                color: white; border: 1px solid transparent;
                 border-radius: 18px; font-size: 14px; font-weight: bold;
             }
             QPushButton:hover {
@@ -775,7 +775,7 @@ class SettingsDialog(QDialog):
         no_btn.setFixedSize(100, 36)
         no_btn.setStyleSheet("""
             QPushButton {
-                background: rgba(255,255,255,0.08); color: rgba(226,222,245,0.85); border: none;
+                background: rgba(255,255,255,0.08); color: rgba(226,222,245,0.85); border: 1px solid transparent;
                 border-radius: 18px; font-size: 14px;
             }
             QPushButton:hover { background: rgba(255,255,255,0.16); }
