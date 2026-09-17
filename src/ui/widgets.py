@@ -117,11 +117,10 @@ class PillButton(QPushButton):
         super().mouseReleaseEvent(event)
 
     def _is_dark(self):
-        # 依据渐变色实际亮度（primary+secondary 均值）——面板背景就是它俩的暗化版，
-        # bg_start 不跟随自定义渐变，不能用
-        p = THEME.get("primary", (102, 126, 234))
-        s = THEME.get("secondary", (118, 75, 162))
-        return (p[0] + p[1] + p[2] + s[0] + s[1] + s[2]) / 6 < 128
+        # 设置面板背景恒为渐变色 dim(0.35/0.45) 暗化版（任意渐变色下都是深底），
+        # 因此 muted/dashed 恒用「暗底亮字」——不能按主题亮暗判断（light 预设的
+        # 深紫字落在暗化底上会隐形，真机实锤）
+        return True
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -147,15 +146,15 @@ class PillButton(QPushButton):
             p.setPen(Qt.NoPen)
         else:
             if self._pressed:
-                p.setBrush(QColor(255, 255, 255, 42) if dark else QColor(80, 70, 150, 46))
+                p.setBrush(QColor(255, 255, 255, 46))
             elif self._hover:
-                p.setBrush(QColor(255, 255, 255, 30) if dark else QColor(80, 70, 150, 34))
+                p.setBrush(QColor(255, 255, 255, 34))
             else:
-                p.setBrush(QColor(255, 255, 255, 22) if dark else QColor(80, 70, 150, 24))
+                p.setBrush(QColor(255, 255, 255, 26))
             p.setPen(Qt.NoPen)
         p.drawRoundedRect(rect, r, r)
         if self._kind == "dashed":
-            pen = QPen(QColor(255, 255, 255, 75) if dark else QColor(80, 70, 150, 95), 1)
+            pen = QPen(QColor(255, 255, 255, 95), 1)
             pen.setStyle(Qt.DashLine)
             p.setPen(pen)
             p.setBrush(Qt.NoBrush)
@@ -163,7 +162,7 @@ class PillButton(QPushButton):
         if self._kind == "primary":
             p.setPen(QColor(255, 255, 255))
         else:
-            p.setPen(QColor(239, 237, 251) if dark else QColor(47, 42, 86))
+            p.setPen(QColor(239, 237, 251))
         f = self.font()
         f.setBold(self._kind == "primary")
         p.setFont(f)
