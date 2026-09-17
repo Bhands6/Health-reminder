@@ -40,7 +40,6 @@ _ACCENT_GRAY = (148, 163, 184)    # 关闭态行的中性强调
 
 _DIALOG_COLORS = {
     "light": {
-        "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
         "text": "rgba(62,54,110,0.85)", "text_full": "#2F2A56",
         "row_bg": "rgba(255,255,255,0.72)", "row_bg_h": "rgba(255,255,255,0.95)",
         "row_border": "rgba(80,70,150,0.10)",
@@ -57,7 +56,6 @@ _DIALOG_COLORS = {
         "tooltip_text": "#2F2A56",
     },
     "dark": {
-        "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
         "text": "rgba(226,222,245,0.85)", "text_full": "#EFEDFB",
         "row_bg": "rgba(255,255,255,0.085)", "row_bg_h": "rgba(255,255,255,0.13)",
         "row_border": "rgba(255,255,255,0.07)",
@@ -84,6 +82,18 @@ def _icon_tint(theme_name, rgb, alpha):
 
 def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
     c = _DIALOG_COLORS.get(theme_name, _DIALOG_COLORS["dark"])
+    # 背景恢复原版联动：跟随用户的渐变颜色（THEME primary/secondary）暗化生成——
+    # 「渐变颜色」调节的正是这里（保存/主题切换后生效）
+    p = THEME.get("primary", (102, 126, 234))
+    s = THEME.get("secondary", (118, 75, 162))
+
+    def _dim(v, factor=0.35):
+        return max(10, int(v * factor))
+
+    bg_grad = (f"stop:0 rgb({_dim(p[0])},{_dim(p[1])},{_dim(p[2])}), "
+               f"stop:0.4 rgb({_dim(p[0], 0.45)},{_dim(p[1], 0.45)},{_dim(p[2], 0.45)}), "
+               f"stop:0.7 rgb({_dim(p[0])},{_dim(p[1])},{_dim(p[2])}), "
+               f"stop:1 rgb({_dim(s[0])},{_dim(s[1])},{_dim(s[2])})")
     return """
         QDialog { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, %(bg)s); }
         QLabel { color: %(text)s; font-size: 13px; background: transparent; }
@@ -227,6 +237,7 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         }
     """ % {
         **c,
+        "bg": bg_grad,
         "check": check_path,
         "arrow_up": arrow_up_path,
         "arrow_down": arrow_down_path,
@@ -604,7 +615,9 @@ class SettingsDialog(QDialog):
         self.config["theme"] = theme
         apply_theme(theme)
         apply_gradient_colors(self.config)
-        # 面板自身固定深色设计稿风，不随主题重刷；主题只作用于悬浮窗/弹窗
+        # 重刷面板：控件样式恒为设计稿深色卡片风（_apply_style 固定 dark 色板），
+        # 但背景渐变跟随 THEME（用户渐变色暗化版）即时更新
+        self._apply_style()
         parent = self.parent()
         if parent is not None and hasattr(parent, "config"):
             parent.config["theme"] = theme
