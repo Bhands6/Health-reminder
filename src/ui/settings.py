@@ -139,7 +139,7 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
             background: transparent; border: none; padding: 0;
         }
         QLabel#dialogTitle {
-            color: %(text_full)s; font-size: 22px; font-weight: bold;
+            color: %(text_full)s; font-size: 28px; font-weight: bold;
             background: transparent; border: none; padding: 0;
         }
         QLabel#dialogSubtitle {
