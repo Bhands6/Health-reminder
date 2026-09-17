@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtWidgets import QGraphicsBlurEffect
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QColor, QFont, QPixmap, QIcon, QPainter
+from PyQt5.QtGui import QColor, QFont, QPixmap, QIcon, QPainter, QPen
 
 from constants import (
     THEME, THEME_PRESETS, BUILTIN_REMINDERS, CUSTOM_COLORS,
@@ -31,24 +31,24 @@ logger = logging.getLogger(__name__)
 _DIALOG_COLORS = {
     "light": {
         "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
-        "text": "rgba(200,180,255,0.9)", "text_full": "rgba(200,180,255,1)",
-        "input_bg": "rgba(200,180,255,0.1)", "input_bg_h": "rgba(200,180,255,0.15)",
-        "border": "rgba(200,180,255,0.2)", "border_h": "rgba(200,180,255,0.5)",
-        "spin_btn": "rgba(200,180,255,0.15)", "spin_btn_h": "rgba(200,180,255,0.3)",
-        "grp_bg": "stop:0 rgba(255,255,255,0.11), stop:0.5 rgba(255,255,255,0.06), stop:1 rgba(255,255,255,0.10)",
-        "grp_border": "rgba(255,255,255,0.24)", "grp_title": "rgba(255,255,255,0.96)",
+        "text": "rgba(240,242,255,0.92)", "text_full": "rgba(255,255,255,1)",
+        "input_bg": "rgba(255,255,255,0.12)", "input_bg_h": "rgba(255,255,255,0.18)",
+        "border": "rgba(255,255,255,0.26)", "border_h": "rgba(255,255,255,0.55)",
+        "spin_btn": "rgba(255,255,255,0.18)", "spin_btn_h": "rgba(255,255,255,0.32)",
+        "grp_bg": "stop:0 rgba(255,255,255,0.11), stop:0.5 rgba(255,255,255,0.05), stop:1 rgba(255,255,255,0.09)",
+        "grp_border": "rgba(255,255,255,0.42)", "grp_title": "rgba(255,255,255,0.98)",
         "scroll_bg": "rgba(200,180,255,0.05)", "scroll_h": "rgba(200,180,255,0.2)",
         "scroll_hh": "rgba(200,180,255,0.35)",
         "tooltip_bg": "rgba(30,30,50,230)", "tooltip_border": "rgba(200,180,255,0.3)",
     },
     "dark": {
         "bg": "stop:0 #0a0a0f, stop:0.4 #111118, stop:0.7 #0d0d14, stop:1 #141420",
-        "text": "rgba(180,180,200,0.9)", "text_full": "rgba(200,200,220,1)",
-        "input_bg": "rgba(200,200,220,0.06)", "input_bg_h": "rgba(200,200,220,0.1)",
-        "border": "rgba(200,200,220,0.12)", "border_h": "rgba(200,200,220,0.3)",
-        "spin_btn": "rgba(200,200,220,0.08)", "spin_btn_h": "rgba(200,200,220,0.15)",
-        "grp_bg": "stop:0 rgba(255,255,255,0.08), stop:0.5 rgba(255,255,255,0.04), stop:1 rgba(255,255,255,0.07)",
-        "grp_border": "rgba(255,255,255,0.20)", "grp_title": "rgba(255,255,255,0.92)",
+        "text": "rgba(232,234,246,0.92)", "text_full": "rgba(255,255,255,1)",
+        "input_bg": "rgba(255,255,255,0.09)", "input_bg_h": "rgba(255,255,255,0.14)",
+        "border": "rgba(255,255,255,0.20)", "border_h": "rgba(255,255,255,0.45)",
+        "spin_btn": "rgba(255,255,255,0.13)", "spin_btn_h": "rgba(255,255,255,0.24)",
+        "grp_bg": "stop:0 rgba(255,255,255,0.09), stop:0.5 rgba(255,255,255,0.04), stop:1 rgba(255,255,255,0.07)",
+        "grp_border": "rgba(255,255,255,0.36)", "grp_title": "rgba(255,255,255,0.96)",
         "scroll_bg": "rgba(200,200,220,0.03)", "scroll_h": "rgba(200,200,220,0.12)",
         "scroll_hh": "rgba(200,200,220,0.22)",
         "tooltip_bg": "rgba(15,15,22,240)", "tooltip_border": "rgba(200,200,220,0.15)",
@@ -64,7 +64,7 @@ def _row_style():
     """
     return """
         background: rgba(255,255,255,0.09);
-        border: 1px solid rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.36);
         border-radius: 10px; padding: 8px 12px;
     """
 
@@ -705,7 +705,23 @@ class SettingsDialog(QDialog):
         """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        draw_glass_panel(painter, QRectF(self.rect()), radius=0, shadow=False)
+        rect = QRectF(self.rect())
+
+        # 底板：极淡的白。玻璃的观感是「透亮」，
+        # 压一层黑会和模糊背景的灰叠在一起，整块发闷。
+        draw_glass_panel(painter, rect, radius=0, shadow=False,
+                         tint=(255, 255, 255, 14))
+
+        # 提亮：亚克力只负责模糊，亮度得自己补（对应 Web 侧的 brightness）。
+        # 亚克力没有「提亮背后内容」的能力，不补这一层整体就会发灰。
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(255, 255, 255, 46))
+        painter.drawRect(rect)
+
+        # 内圈高光边：玻璃的「厚度感」靠这道亮边撑起来
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(QColor(255, 255, 255, 90), 1.6))
+        painter.drawRect(rect.adjusted(0.9, 0.9, -0.9, -0.9))
 
     def showEvent(self, event):
         """窗口真正显示后再启用亚克力与系统圆角 —— 这时才有可用的原生窗口句柄"""
@@ -715,7 +731,9 @@ class SettingsDialog(QDialog):
         self._acrylic_ready = True
         if IS_WINDOWS:
             hwnd = int(self.winId())
-            set_acrylic(hwnd, r=22, g=24, b=38, alpha=150)
+            # alpha 决定「桌面能透出多少」。调高会把模糊背景盖住，整块发灰；
+            # 45 让背后透出约八成，玻璃的透亮感才出得来。
+            set_acrylic(hwnd, r=40, g=44, b=62, alpha=35)
             # 圆角交给 DWM：自己画圆角会让亚克力的矩形在四角露出来
             set_round_corner(hwnd)
 
