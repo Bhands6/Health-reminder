@@ -380,11 +380,13 @@ class SettingsDialog(QDialog):
         content_layout.setSpacing(12)
         main_scroll.setWidget(content_widget)
 
-        # ---- 标题区（左对齐，设计稿样式）----
+        # ---- 标题区（居中）----
         title_label = QLabel("健康提醒助手")
         title_label.setObjectName("dialogTitle")
+        title_label.setAlignment(Qt.AlignCenter)
         subtitle_label = QLabel("关爱健康，从每次提醒开始")
         subtitle_label.setObjectName("dialogSubtitle")
+        subtitle_label.setAlignment(Qt.AlignCenter)
         content_layout.addWidget(title_label)
         content_layout.addWidget(subtitle_label)
         content_layout.addSpacing(4)
