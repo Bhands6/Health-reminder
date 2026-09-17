@@ -44,8 +44,12 @@ def draw_glass_panel(painter, rect, radius=24, tint=None, shadow=True,
     base = tint if tint is not None else GLASS_TINT
 
     # 1) 外侧多层投影：从大到小叠出柔和衰减（对应 CSS 的 0 16px 56px 等）
+    #    量级跟随圆角缩放，小窗口（悬浮球）也能在有限留白里画出层次
     if shadow:
-        for spread, dy, alpha in ((6, 18, 9), (4, 11, 10), (2, 5, 9)):
+        unit = max(1.5, min(7.0, radius * 0.28))
+        for factor, alpha in ((1.0, 10), (0.62, 12), (0.34, 11)):
+            spread = unit * factor
+            dy = spread * 1.5
             s = QRectF(r).adjusted(-spread, -spread + dy, spread, spread + dy)
             painter.setPen(Qt.NoPen)
             painter.setBrush(QColor(GLASS_SHADOW[0], GLASS_SHADOW[1],
@@ -103,6 +107,38 @@ def draw_glass_backdrop(painter, rect, radius=24, blur_strength=12, tint=None):
     painter.setPen(Qt.NoPen)
     painter.setBrush(QBrush(layer))
     painter.drawRoundedRect(r, radius, radius)
+
+
+def draw_color_veil(painter, rect, radius, color, top_alpha=64, bottom_alpha=24):
+    """在玻璃上叠一层很淡的提醒色
+
+    玻璃本身是透明的，靠这层薄雾保留「护眼=紫 / 喝水=青」这类色彩识别。
+    """
+    r = QRectF(rect)
+    veil = QLinearGradient(r.topLeft(), r.bottomRight())
+    veil.setColorAt(0.0, QColor(color[0], color[1], color[2], top_alpha))
+    veil.setColorAt(1.0, QColor(color[0], color[1], color[2], bottom_alpha))
+    painter.setPen(Qt.NoPen)
+    painter.setBrush(QBrush(veil))
+    painter.drawRoundedRect(r, radius, radius)
+
+
+def draw_glass_text(painter, x, y, w, h, flags, text, font, color=None, shadow=True):
+    """玻璃上的文字
+
+    玻璃底色很淡，桌面壁纸会透上来，所以先垫一层柔和投影再写主体色，
+    保证在浅色壁纸上同样清晰（Web 那套是深色底，不需要这一步）。
+    """
+    if shadow:
+        # 四向 1px 投影近似描边：玻璃很透，浅色壁纸透上来时靠它保住可读性
+        painter.setFont(font)
+        painter.setPen(QColor(0, 0, 0, 130))
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            painter.drawText(x + dx, y + dy, w, h, flags, text)
+
+    painter.setFont(font)
+    painter.setPen(color if color is not None else QColor(255, 255, 255))
+    painter.drawText(x, y, w, h, flags, text)
 
 
 def glass_color(alpha_out=255):
