@@ -18,6 +18,7 @@ from PyQt5.QtGui import (
 
 from constants import (
     THEME, BUILTIN_REMINDERS, CUSTOM_COLORS, FONT_EMOJI, FONT_UI, APP_ICON,
+    IS_WINDOWS,
 )
 from utils import (
     load_config, save_config, record_stat, get_today_stats,
@@ -30,6 +31,17 @@ from ui.popup import ReminderPopup
 from ui.warm_tips import show_warm_tips
 
 logger = logging.getLogger(__name__)
+
+# ---- Windows 系统级热键（RegisterHotKey）相关常量 ----
+WM_HOTKEY = 0x0312
+MOD_ALT = 0x0001
+MOD_CONTROL = 0x0002
+MOD_SHIFT = 0x0004
+MOD_NOREPEAT = 0x4000
+
+if IS_WINDOWS:
+    import ctypes
+    from ctypes import wintypes
 
 
 class FloatingWidget(QWidget):
@@ -48,6 +60,8 @@ class FloatingWidget(QWidget):
         self.mini_mode = self.config.get("mini_mode", False)
         self.hovered = False
         self._popups = []
+        self._hotkey_actions = {}        # 系统级热键 id -> 处理方法名
+        self._fallback_shortcuts = []    # 未能注册为系统级热键时的窗口级快捷键
 
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self.update_display)
@@ -658,10 +672,64 @@ class FloatingWidget(QWidget):
         self.tray.show()
 
     def init_shortcuts(self):
-        QShortcut(QKeySequence("Ctrl+Shift+P"), self).activated.connect(self.toggle_pause)
-        QShortcut(QKeySequence("Ctrl+Shift+S"), self).activated.connect(self.open_settings)
-        QShortcut(QKeySequence("Ctrl+Shift+Q"), self).activated.connect(self.quit_app)
-        QShortcut(QKeySequence("Ctrl+Shift+M"), self).activated.connect(self.toggle_mini_mode)
+        """注册快捷键
+
+        Windows 下优先注册系统级热键（RegisterHotKey + WM_HOTKEY），
+        悬浮窗没有焦点时也能响应；某个组合键被其他程序占用时，
+        该组合键单独回退为窗口级 QShortcut，保证功能仍然可用。
+        """
+        hotkeys = [
+            ("toggle_pause", "Ctrl+Shift+P", 0x50),      # P
+            ("open_settings", "Ctrl+Shift+S", 0x53),     # S
+            ("toggle_mini_mode", "Ctrl+Shift+M", 0x4D),  # M
+            ("quit_app", "Ctrl+Shift+Q", 0x51),          # Q
+        ]
+
+        for hotkey_id, (action, sequence, vk) in enumerate(hotkeys, start=1):
+            registered = False
+            if IS_WINDOWS:
+                try:
+                    registered = bool(ctypes.windll.user32.RegisterHotKey(
+                        int(self.winId()), hotkey_id,
+                        MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, vk,
+                    ))
+                except Exception as e:
+                    logger.warning("RegisterHotKey failed for %s: %s", action, e)
+
+            if registered:
+                self._hotkey_actions[hotkey_id] = action
+            else:
+                shortcut = QShortcut(QKeySequence(sequence), self)
+                shortcut.activated.connect(getattr(self, action))
+                self._fallback_shortcuts.append(shortcut)
+
+        logger.info(
+            "Global hotkeys: %s | window-level shortcuts: %d",
+            list(self._hotkey_actions.values()), len(self._fallback_shortcuts),
+        )
+
+    def _unregister_hotkeys(self):
+        """注销系统级热键，避免退出后仍占用组合键"""
+        for hotkey_id in list(self._hotkey_actions):
+            try:
+                ctypes.windll.user32.UnregisterHotKey(int(self.winId()), hotkey_id)
+            except Exception as e:
+                logger.warning("UnregisterHotKey %s failed: %s", hotkey_id, e)
+        self._hotkey_actions.clear()
+
+    def nativeEvent(self, eventType, message):
+        """接收系统级热键消息（Windows 专有）"""
+        if self._hotkey_actions and eventType in (b"windows_generic_MSG", "windows_generic_MSG"):
+            try:
+                msg = wintypes.MSG.from_address(int(message))
+                if msg.message == WM_HOTKEY:
+                    action = self._hotkey_actions.get(int(msg.wParam))
+                    if action:
+                        getattr(self, action)()
+                        return True, 0
+            except Exception as e:
+                logger.warning("Failed to handle hotkey message: %s", e)
+        return super().nativeEvent(eventType, message)
 
     def tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
@@ -674,5 +742,6 @@ class FloatingWidget(QWidget):
         self.hide()
 
     def quit_app(self):
+        self._unregister_hotkeys()
         self.tray.hide()
         QApplication.quit()
