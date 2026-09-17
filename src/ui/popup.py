@@ -4,11 +4,10 @@
 import logging
 
 from PyQt5.QtWidgets import QWidget, QPushButton, QApplication, QDesktopWidget
-from PyQt5.QtCore import Qt, QTimer, QRect, QRectF, pyqtSignal
-from PyQt5.QtGui import QColor, QPainter, QFont
+from PyQt5.QtCore import Qt, QTimer, QRect, pyqtSignal
+from PyQt5.QtGui import QColor, QPainter, QFont, QLinearGradient, QBrush
 
 from constants import FONT_EMOJI, FONT_UI
-from ui.glass import draw_glass_panel, draw_color_veil, draw_glass_text
 
 logger = logging.getLogger(__name__)
 
@@ -162,38 +161,43 @@ class ReminderPopup(QWidget):
         self.update()
 
     def paintEvent(self, event):
-        """绘制弹窗（玻璃质感 + 一层很淡的提醒色保留色彩识别）"""
+        """绘制弹窗"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        margin = 8
-        panel = QRectF(0, 0, self.width() - margin, self.height() - margin)
+        # 阴影
+        shadow = QColor(0, 0, 0, 60)
+        painter.setBrush(QBrush(shadow))
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(8, 8, self.width() - 8, self.height() - 8, 24, 24)
 
-        # 玻璃底
-        draw_glass_panel(painter, panel, radius=26)
-        # 叠一层提醒色薄雾：护眼偏紫、喝水偏青，颜色本身仍是识别线索
-        draw_color_veil(painter, panel, 26, self.color)
+        # 渐变背景
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor(*self.color, 230))
+        gradient.setColorAt(1, QColor(*self.color, 200))
+        painter.setBrush(QBrush(gradient))
+        painter.drawRoundedRect(0, 0, self.width() - 8, self.height() - 8, 24, 24)
 
         # 大图标
-        painter.setPen(QColor(255, 255, 255, 150))
+        painter.setPen(QColor(255, 255, 255, 80))
         painter.setFont(QFont(FONT_EMOJI, 45))
         icon = self.message[0] if len(self.message) > 0 else "🔔"
         painter.drawText(25, 40, 70, 70, Qt.AlignCenter, icon)
 
         # 提醒文字
+        painter.setPen(QColor(255, 255, 255))
+        painter.setFont(QFont(FONT_UI, 14, QFont.Bold))
         text = self.message[2:] if len(self.message) > 2 else self.message
-        draw_glass_text(painter, 105, 25, self.width() - 130, 70,
-                        Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap,
-                        text, QFont(FONT_UI, 14, QFont.Bold))
+        painter.drawText(105, 25, self.width() - 130, 70, Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap, text)
 
         # 底部进度条
         progress = min(1.0, self.elapsed_time / self.total_time)
         bar_y = self.height() - 12
         bar_width = self.width() - 30
-        painter.setBrush(QColor(255, 255, 255, 60))
+        painter.setBrush(QColor(255, 255, 255, 40))
         painter.setPen(Qt.NoPen)
         painter.drawRoundedRect(15, bar_y, bar_width, 4, 2, 2)
-        painter.setBrush(QColor(255, 255, 255, 200))
+        painter.setBrush(QColor(255, 255, 255, 150))
         painter.drawRoundedRect(15, bar_y, int(bar_width * progress), 4, 2, 2)
 
         painter.end()

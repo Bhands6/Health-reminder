@@ -10,9 +10,10 @@ from PyQt5.QtWidgets import (
     QDesktopWidget, QShortcut, QMessageBox, QDialog,
     QSlider, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QWidgetAction, QSpinBox,
 )
-from PyQt5.QtCore import Qt, QTimer, QPoint, QRectF
+from PyQt5.QtCore import Qt, QTimer, QPoint, QSize
 from PyQt5.QtGui import (
-    QColor, QPainter, QFont, QIcon, QPixmap, QKeySequence,
+    QColor, QPainter, QFont, QIcon, QLinearGradient, QBrush,
+    QPen, QPixmap, QRadialGradient, QFontMetrics, QKeySequence,
 )
 
 from constants import (
@@ -26,7 +27,6 @@ from utils import (
 from ui.widgets import (
     draw_progress_ring, draw_closed_eyes, draw_closed_rest, draw_closed_water,
 )
-from ui.glass import draw_glass_panel, draw_glass_text
 from ui.popup import ReminderPopup
 from ui.warm_tips import show_warm_tips
 
@@ -217,19 +217,26 @@ class FloatingWidget(QWidget):
 
     def _paint_mini(self, painter):
         size = self.config.get("widget_size", 100)
-        margin = max(6, size // 12)          # 留白给玻璃的外投影
-        circle_size = size - margin * 2
+        shadow_offset = max(4, size // 12)
+        circle_size = size - shadow_offset
         circle_r = circle_size // 2
-        cx = margin + circle_r
-        box = (margin, margin, circle_size, circle_size)
 
-        # 玻璃球体：极淡底色 + 边缘高光 + 内侧柔光
-        draw_glass_panel(painter, QRectF(*box), radius=circle_r)
+        shadow = QColor(0, 0, 0, 50)
+        painter.setBrush(QBrush(shadow))
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(shadow_offset, shadow_offset, circle_size, circle_size, circle_r, circle_r)
+
+        gradient = QRadialGradient(circle_r, circle_r, circle_r)
+        gradient.setColorAt(0, QColor(*THEME["primary"], 230))
+        gradient.setColorAt(1, QColor(*THEME["secondary"], 230))
+        painter.setBrush(QBrush(gradient))
+        painter.drawRoundedRect(0, 0, circle_size, circle_size, circle_r, circle_r)
 
         if is_dnd_active(self.config):
             icon_size = max(12, circle_size // 4)
-            draw_glass_text(painter, *box, Qt.AlignCenter, "🌙",
-                            QFont(FONT_EMOJI, icon_size))
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont(FONT_EMOJI, icon_size))
+            painter.drawText(0, 0, circle_size, circle_size, Qt.AlignCenter, "🌙")
             return
 
         key, remaining = self.get_next_reminder()
@@ -240,72 +247,82 @@ class FloatingWidget(QWidget):
             elapsed = total - remaining.total_seconds()
             progress = max(0, min(1, elapsed / total))
             ring_r = circle_r - 7
-            draw_progress_ring(painter, cx, cx, ring_r, progress, info["color"])
+            draw_progress_ring(painter, circle_r, circle_r, ring_r, progress, info["color"])
 
             icon_size = max(12, circle_size // 4)
             t = time.time() % 3.5
             blink = t < 0.4
             if key == "eye_care" and blink:
-                draw_closed_eyes(painter, cx, icon_size, THEME["primary"])
+                draw_closed_eyes(painter, circle_r, icon_size, THEME["primary"])
             elif key == "rest" and blink:
-                draw_closed_rest(painter, cx, icon_size)
+                draw_closed_rest(painter, circle_r, icon_size)
             elif key == "water" and blink:
-                draw_closed_water(painter, cx, icon_size)
+                draw_closed_water(painter, circle_r, icon_size)
             else:
-                draw_glass_text(painter, *box, Qt.AlignCenter, info["icon"],
-                                QFont(FONT_EMOJI, icon_size))
+                painter.setPen(QColor(255, 255, 255))
+                painter.setFont(QFont(FONT_EMOJI, icon_size))
+                painter.drawText(0, 0, circle_size, circle_size, Qt.AlignCenter, info["icon"])
         else:
-            draw_glass_text(painter, *box, Qt.AlignCenter, "💚",
-                            QFont(FONT_EMOJI, max(12, circle_size // 4)))
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont(FONT_EMOJI, max(12, circle_size // 4)))
+            painter.drawText(0, 0, circle_size, circle_size, Qt.AlignCenter, "💚")
 
     def _paint_full(self, painter):
-        margin = 8
-        panel = QRectF(0, 0, self.width() - margin, self.height() - margin)
-        text_w = self.width() - 20
+        shadow = QColor(0, 0, 0, 50)
+        painter.setBrush(QBrush(shadow))
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(6, 6, self.width() - 6, self.height() - 6, 18, 18)
 
-        # 玻璃面板：极淡底色 + 边缘高光 + 内侧柔光 + 多层投影
-        draw_glass_panel(painter, panel, radius=20)
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor(*THEME["primary"], 230))
+        gradient.setColorAt(1, QColor(*THEME["secondary"], 230))
+        painter.setBrush(QBrush(gradient))
+        painter.drawRoundedRect(0, 0, self.width() - 6, self.height() - 6, 18, 18)
 
+        painter.setPen(QColor(255, 255, 255))
+        painter.setFont(QFont(FONT_UI, 11, QFont.Bold))
         if is_dnd_active(self.config):
             status = "🌙 勿扰中"
         elif self.paused:
             status = "⏸ 已暂停"
         else:
             status = "💚 健康提醒"
-        draw_glass_text(painter, 15, 12, text_w, 25, Qt.AlignLeft, status,
-                        QFont(FONT_UI, 11, QFont.Bold))
+        painter.drawText(15, 12, self.width() - 20, 25, Qt.AlignLeft, status)
 
         key, remaining = self.get_next_reminder()
         all_rem = self._get_all_reminders()
         if key and remaining and key in all_rem:
             mins, secs = divmod(int(remaining.total_seconds()), 60)
             info = all_rem[key]
-            draw_glass_text(painter, 15, 40, text_w, 20, Qt.AlignLeft,
-                            f"{info['icon']} {info['name']}  {mins:02d}:{secs:02d}",
-                            QFont(FONT_UI, 10), QColor(255, 255, 255, 225))
+            painter.setFont(QFont(FONT_UI, 10))
+            painter.setPen(QColor(255, 255, 255, 220))
+            painter.drawText(15, 40, self.width() - 20, 20, Qt.AlignLeft,
+                           f"{info['icon']} {info['name']}  {mins:02d}:{secs:02d}")
 
             total = info["interval"] * 60
             elapsed = total - remaining.total_seconds()
             progress = max(0, min(1, elapsed / total))
             bar_y = 65
             bar_width = self.width() - 30
-            painter.setBrush(QColor(255, 255, 255, 55))
+            painter.setBrush(QColor(255, 255, 255, 40))
             painter.setPen(Qt.NoPen)
             painter.drawRoundedRect(15, bar_y, bar_width, 5, 2, 2)
-            painter.setBrush(QColor(255, 255, 255, 190))
+            painter.setBrush(QColor(255, 255, 255, 150))
             painter.drawRoundedRect(15, bar_y, int(bar_width * progress), 5, 2, 2)
 
-            draw_glass_text(painter, 15, 75, text_w, 15, Qt.AlignLeft,
-                            f"已完成 {get_today_stats().get(key, {}).get('completed', 0)} 次",
-                            QFont(FONT_UI, 8), QColor(255, 255, 255, 165))
+            painter.setPen(QColor(255, 255, 255, 150))
+            painter.setFont(QFont(FONT_UI, 8))
+            painter.drawText(15, 75, self.width() - 20, 15, Qt.AlignLeft,
+                           f"已完成 {get_today_stats().get(key, {}).get('completed', 0)} 次")
         else:
-            draw_glass_text(painter, 15, 45, text_w, 20, Qt.AlignLeft, "暂无活跃提醒",
-                            QFont(FONT_UI, 9), QColor(255, 255, 255, 165))
+            painter.setFont(QFont(FONT_UI, 9))
+            painter.setPen(QColor(255, 255, 255, 150))
+            painter.drawText(15, 45, self.width() - 20, 20, Qt.AlignLeft, "暂无活跃提醒")
 
-        # 底部操作提示
-        draw_glass_text(painter, 15, self.height() - 24, text_w, 15, Qt.AlignLeft,
-                        "单击温馨提示 | 双击设置 | 右键菜单",
-                        QFont(FONT_UI, 8), QColor(255, 255, 255, 130))
+        # 右下角提示
+        painter.setFont(QFont(FONT_UI, 8))
+        painter.setPen(QColor(255, 255, 255, 80))
+        painter.drawText(15, self.height() - 22, self.width() - 20, 15, Qt.AlignLeft, "单击温馨提示 | 双击设置 | 右键菜单")
 
     # ==================== 交互 ====================
 
