@@ -17,8 +17,15 @@
 
 
 
-| **深色卡片式设置面板** | **提醒弹窗** | **右键菜单** |
-| <img src="docs/screenshots/05-settings-panel.png" width="200"/> | <img src="docs/screenshots/06-popup-reminder.png" width="200"/> | <img src="docs/screenshots/07-context-menu.png" width="120"/> |
+<table>
+  <tr>
+    <td rowspan="2" align="center"><img src="docs/screenshots/05-settings-panel.png" width="240"/><br><b>深色卡片式设置面板</b></td>
+    <td align="center"><img src="docs/screenshots/06-popup-reminder.png" width="310"/><br><b>提醒弹窗</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/07-context-menu.png" width="132"/><br><b>右键菜单</b></td>
+  </tr>
+</table>
 
 
 ## 功能特性
