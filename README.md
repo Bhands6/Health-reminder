@@ -1,4 +1,4 @@
-﻿# 💚 健康提醒助手 (Health Reminder)
+<h1 align="center">💚 健康提醒助手 (Health Reminder)</h1>
 
 一款桌面健康提醒悬浮窗应用，帮你养成定时护眼、休息、喝水的好习惯。
 
@@ -18,7 +18,11 @@
 
 
 | **深色卡片式设置面板** | **提醒弹窗** |
-| ![](docs/screenshots/05-settings-panel.png) | ![](docs/screenshots/06-popup-reminder.png) (docs/screenshots/07-context-menu.png)|
+| ![](docs/screenshots/05-settings-panel.png) | ![](docs/screenshots/06-popup-reminder.png) |
+
+<p align="center">
+  <img src="docs/screenshots/07-context-menu.png" width="180" alt="右键菜单">
+</p>
 
 
 ## 功能特性
