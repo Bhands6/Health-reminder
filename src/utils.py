@@ -6,11 +6,12 @@ import json
 import logging
 import os
 import shutil
+import sys
 from datetime import datetime
 from typing import Dict
 
 from constants import (
-    CONFIG_FILE, DATA_DIR, DEFAULT_CONFIG, STATS_FILE,
+    CONFIG_FILE, DATA_DIR, DEFAULT_CONFIG, PROJECT_ROOT, STATS_FILE,
     IS_WINDOWS, SOUND_PROFILES,
 )
 
@@ -228,6 +229,19 @@ def get_today_stats() -> Dict[str, Dict[str, int]]:
 
 # ==================== 自启动 ====================
 
+def _autostart_command() -> str:
+    """构造开机自启要执行的命令行
+
+    打包后 sys.executable 就是 exe 本身；
+    源码运行时必须带上解释器（"python.exe" "main.py"），
+    只写 sys.argv[0] 会得到一行裸的 .py 路径，开机根本起不来。
+    """
+    if getattr(sys, "frozen", False):
+        return f'"{os.path.abspath(sys.executable)}"'
+    script = os.path.abspath(os.path.join(PROJECT_ROOT, "main.py"))
+    return f'"{os.path.abspath(sys.executable)}" "{script}"'
+
+
 def set_autostart(enable: bool) -> None:
     """设置开机自启动（仅 Windows）"""
     if not IS_WINDOWS:
@@ -235,13 +249,13 @@ def set_autostart(enable: bool) -> None:
 
     app_name = "HealthReminder"
     reg_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
-    exe_path = os.path.abspath(os.sys.argv[0])
+    command = _autostart_command()
 
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_SET_VALUE)
         if enable:
-            winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{exe_path}"')
-            logger.info("Autostart enabled: %s", exe_path)
+            winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, command)
+            logger.info("Autostart enabled: %s", command)
         else:
             try:
                 winreg.DeleteValue(key, app_name)
