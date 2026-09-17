@@ -11,18 +11,17 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtWidgets import QGraphicsBlurEffect
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QColor, QFont, QPixmap, QIcon, QPainter, QPen
+from PyQt5.QtGui import QColor, QFont, QPixmap, QIcon, QPainter
 
 from constants import (
     THEME, THEME_PRESETS, BUILTIN_REMINDERS, CUSTOM_COLORS,
     ICON_CHOICES, ICON_NAMES, FONT_UI, FONT_EMOJI, CHECK_ICON,
-    ARROW_UP_ICON, ARROW_DOWN_ICON, POPUP_POSITION_MAP, IS_WINDOWS,
+    ARROW_UP_ICON, ARROW_DOWN_ICON, POPUP_POSITION_MAP,
 )
 from utils import save_config, set_autostart
 from constants import apply_theme, apply_gradient_colors
 from ui.widgets import ToggleSwitch
 from ui.glass import draw_glass_panel
-from ui.acrylic import set_acrylic, set_round_corner
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +30,24 @@ logger = logging.getLogger(__name__)
 _DIALOG_COLORS = {
     "light": {
         "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
-        "text": "rgba(240,242,255,0.92)", "text_full": "rgba(255,255,255,1)",
-        "input_bg": "rgba(255,255,255,0.12)", "input_bg_h": "rgba(255,255,255,0.18)",
-        "border": "rgba(255,255,255,0.26)", "border_h": "rgba(255,255,255,0.55)",
-        "spin_btn": "rgba(255,255,255,0.18)", "spin_btn_h": "rgba(255,255,255,0.32)",
-        "grp_bg": "stop:0 rgba(255,255,255,0.11), stop:0.5 rgba(255,255,255,0.05), stop:1 rgba(255,255,255,0.09)",
-        "grp_border": "rgba(255,255,255,0.42)", "grp_title": "rgba(255,255,255,0.98)",
+        "text": "rgba(200,180,255,0.9)", "text_full": "rgba(200,180,255,1)",
+        "input_bg": "rgba(200,180,255,0.1)", "input_bg_h": "rgba(200,180,255,0.15)",
+        "border": "rgba(200,180,255,0.2)", "border_h": "rgba(200,180,255,0.5)",
+        "spin_btn": "rgba(200,180,255,0.15)", "spin_btn_h": "rgba(200,180,255,0.3)",
+        "grp_bg": "stop:0 rgba(255,255,255,0.11), stop:0.5 rgba(255,255,255,0.06), stop:1 rgba(255,255,255,0.10)",
+        "grp_border": "rgba(255,255,255,0.24)", "grp_title": "rgba(255,255,255,0.96)",
         "scroll_bg": "rgba(200,180,255,0.05)", "scroll_h": "rgba(200,180,255,0.2)",
         "scroll_hh": "rgba(200,180,255,0.35)",
         "tooltip_bg": "rgba(30,30,50,230)", "tooltip_border": "rgba(200,180,255,0.3)",
     },
     "dark": {
         "bg": "stop:0 #0a0a0f, stop:0.4 #111118, stop:0.7 #0d0d14, stop:1 #141420",
-        "text": "rgba(232,234,246,0.92)", "text_full": "rgba(255,255,255,1)",
-        "input_bg": "rgba(255,255,255,0.09)", "input_bg_h": "rgba(255,255,255,0.14)",
-        "border": "rgba(255,255,255,0.20)", "border_h": "rgba(255,255,255,0.45)",
-        "spin_btn": "rgba(255,255,255,0.13)", "spin_btn_h": "rgba(255,255,255,0.24)",
-        "grp_bg": "stop:0 rgba(255,255,255,0.09), stop:0.5 rgba(255,255,255,0.04), stop:1 rgba(255,255,255,0.07)",
-        "grp_border": "rgba(255,255,255,0.36)", "grp_title": "rgba(255,255,255,0.96)",
+        "text": "rgba(180,180,200,0.9)", "text_full": "rgba(200,200,220,1)",
+        "input_bg": "rgba(200,200,220,0.06)", "input_bg_h": "rgba(200,200,220,0.1)",
+        "border": "rgba(200,200,220,0.12)", "border_h": "rgba(200,200,220,0.3)",
+        "spin_btn": "rgba(200,200,220,0.08)", "spin_btn_h": "rgba(200,200,220,0.15)",
+        "grp_bg": "stop:0 rgba(255,255,255,0.08), stop:0.5 rgba(255,255,255,0.04), stop:1 rgba(255,255,255,0.07)",
+        "grp_border": "rgba(255,255,255,0.20)", "grp_title": "rgba(255,255,255,0.92)",
         "scroll_bg": "rgba(200,200,220,0.03)", "scroll_h": "rgba(200,200,220,0.12)",
         "scroll_hh": "rgba(200,200,220,0.22)",
         "tooltip_bg": "rgba(15,15,22,240)", "tooltip_border": "rgba(200,200,220,0.15)",
@@ -64,7 +63,7 @@ def _row_style():
     """
     return """
         background: rgba(255,255,255,0.09);
-        border: 1px solid rgba(255,255,255,0.36);
+        border: 1px solid rgba(255,255,255,0.18);
         border-radius: 10px; padding: 8px 12px;
     """
 
@@ -314,13 +313,8 @@ class SettingsDialog(QDialog):
     def __init__(self, config, parent=None):
         super().__init__(parent)
         self.setWindowTitle("设置")
-        # 无边框 + 半透明是亚克力生效的前提：
-        # 带系统标题栏的窗口，客户区背景会被 DWM 强制不透明，亚克力根本看不见。
-        # 代价是拖动与关闭按钮要自己实现（见 _build_title_bar）。
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        # 让内容区能透出桌面，玻璃底板由 paintEvent 手绘
         self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self._acrylic_ready = False
-        self._drag_offset = None
         self.setMinimumSize(400, 500)
         self.resize(500, 800)
         # 深拷贝，保证「取消」时外部配置与全局主题都不受影响
@@ -339,11 +333,8 @@ class SettingsDialog(QDialog):
         self._apply_style()
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 8, 12, 16)
-        main_layout.setSpacing(8)
-
-        # 无边框窗口需要自己提供标题栏（拖动 + 关闭）
-        main_layout.addWidget(self._build_title_bar())
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(10)
 
         main_scroll = QScrollArea()
         main_scroll.setWidgetResizable(True)
@@ -641,101 +632,16 @@ class SettingsDialog(QDialog):
             return
         super().keyPressEvent(event)
 
-    def _build_title_bar(self):
-        """自绘标题栏：无边框窗口的拖动与关闭
-
-        只有无边框窗口才能让亚克力透出来，所以这里把系统标题栏该做的事接过来。
-        """
-        bar = QWidget()
-        bar.setFixedHeight(38)
-        bar.setCursor(Qt.SizeAllCursor)
-
-        lay = QHBoxLayout(bar)
-        lay.setContentsMargins(10, 0, 2, 0)
-
-        title = QLabel("设置")
-        title.setStyleSheet(
-            "color: rgba(255,255,255,0.94); font-size: 13px; font-weight: bold;"
-            " background: transparent; border: none;"
-        )
-        lay.addWidget(title)
-        lay.addStretch()
-
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(30, 30)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        close_btn.setToolTip("关闭")
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent; color: rgba(255,255,255,0.75);
-                border: none; border-radius: 8px; font-size: 14px;
-            }
-            QPushButton:hover { background: rgba(255,80,90,0.85); color: #fff; }
-        """)
-        close_btn.clicked.connect(self.reject)
-        lay.addWidget(close_btn)
-
-        # 标题栏负责拖动整个无边框窗口
-        bar.mousePressEvent = self._title_press
-        bar.mouseMoveEvent = self._title_move
-        bar.mouseReleaseEvent = self._title_release
-        return bar
-
-    def _title_press(self, event):
-        if event.button() == Qt.LeftButton:
-            self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def _title_move(self, event):
-        if event.buttons() == Qt.LeftButton and self._drag_offset is not None:
-            self.move(event.globalPos() - self._drag_offset)
-            event.accept()
-
-    def _title_release(self, event):
-        self._drag_offset = None
-
     def paintEvent(self, event):
         """手绘玻璃底板
 
-        QSS 只能表达单层背景色，画不出玻璃的边缘高光与内侧柔光，所以底板在这里手绘。
-        底板铺满整个内容区、不留边距：亚克力的模糊作用于整个窗口矩形，
-        留边距或做圆角会在四个角露出「模糊的方块」。
-
-        背后内容之所以会糊，靠的是 showEvent 里启用的系统亚克力（见 ui/acrylic.py）。
+        QSS 只能表达单层背景色，画不出玻璃的边缘高光与内侧柔光，所以底板在这里手绘，
+        QSS 中 QDialog 的背景设为 transparent（子控件仍由 QSS 负责）。
         """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        rect = QRectF(self.rect())
-
-        # 底板：极淡的白。玻璃的观感是「透亮」，
-        # 压一层黑会和模糊背景的灰叠在一起，整块发闷。
-        draw_glass_panel(painter, rect, radius=0, shadow=False,
-                         tint=(255, 255, 255, 14))
-
-        # 提亮：亚克力只负责模糊，亮度得自己补（对应 Web 侧的 brightness）。
-        # 亚克力没有「提亮背后内容」的能力，不补这一层整体就会发灰。
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(255, 255, 255, 46))
-        painter.drawRect(rect)
-
-        # 内圈高光边：玻璃的「厚度感」靠这道亮边撑起来
-        painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor(255, 255, 255, 90), 1.6))
-        painter.drawRect(rect.adjusted(0.9, 0.9, -0.9, -0.9))
-
-    def showEvent(self, event):
-        """窗口真正显示后再启用亚克力与系统圆角 —— 这时才有可用的原生窗口句柄"""
-        super().showEvent(event)
-        if self._acrylic_ready:
-            return
-        self._acrylic_ready = True
-        if IS_WINDOWS:
-            hwnd = int(self.winId())
-            # alpha 决定「桌面能透出多少」。调高会把模糊背景盖住，整块发灰；
-            # 45 让背后透出约八成，玻璃的透亮感才出得来。
-            set_acrylic(hwnd, r=40, g=44, b=62, alpha=35)
-            # 圆角交给 DWM：自己画圆角会让亚克力的矩形在四角露出来
-            set_round_corner(hwnd)
+        panel = QRectF(self.rect()).adjusted(7, 7, -7, -7)
+        draw_glass_panel(painter, panel, radius=16)
 
     def _apply_style(self):
         theme = self.config.get("theme", "light")
