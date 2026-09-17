@@ -48,6 +48,10 @@
 | **拖拽** | 移动悬浮球位置 |
 | **滚轮** | 调整悬浮球大小（迷你模式） |
 
+<p align="center">
+  <img src="docs/screenshots/07-context-menu.png" width="180" alt="右键菜单">
+</p>
+
 ### 🔔 弹窗提醒
 
 - 渐变背景 + 动画淡入淡出
