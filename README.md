@@ -8,6 +8,20 @@
 ![PyQt5](https://img.shields.io/badge/PyQt5-5.15+-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+## 界面预览
+
+**单击悬浮球，祝福语按爱心形状铺满全屏** 💝
+
+<p align="center">
+  <img src="docs/screenshots/03-warm-tips-heart.jpg" width="80%" alt="爱心祝福弹幕">
+</p>
+
+| 悬浮窗 · 倒计时进度 | 迷你悬浮球 · 进度环 |
+|:---:|:---:|
+| ![](docs/screenshots/01-widget-mini.png) | ![](docs/screenshots/02-widget-ring.png) |
+| **深色卡片式设置面板** | **提醒弹窗** |
+| ![](docs/screenshots/05-settings-panel.png) | ![](docs/screenshots/06-popup-reminder.png) |
+
 ## 功能特性
 
 ### 📋 内置提醒
@@ -46,6 +60,11 @@
 - 点击悬浮球显示大量随机温馨提醒窗口
 - **迷你模式**：窗口按爱心形状排列 🫶
 - **完整模式**：窗口随机散布在屏幕上
+
+| 爱心排列（迷你模式） | 随机散布（完整模式） |
+|:---:|:---:|
+| ![](docs/screenshots/03-warm-tips-heart.jpg) | ![](docs/screenshots/04-warm-tips-scatter.jpg) |
+
 - 支持自定义弹窗数量（10-500）
 - 控制窗口显示提示信息，按空格键或点击任意提醒窗口即可关闭全部
 - 窗口带有淡入淡出动画效果
@@ -216,6 +235,6 @@ pyinstaller 健康提醒.spec
 
 ## 作者
 
-**Bhands** · v3.0
+**Bhands** · V 3.2
 
 GitHub: [Bhands6/Health-reminder](https://github.com/Bhands6/Health-reminder)
