@@ -102,7 +102,7 @@ def _validate_config(config: dict) -> dict:
     validated["auto_start"] = bool(config.get("auto_start", False))
     validated["dnd_enabled"] = bool(config.get("dnd_enabled", False))
     validated["mini_mode"] = bool(config.get("mini_mode", False))
-    validated["theme"] = config.get("theme", "light") if config.get("theme") in ("light", "dark") else "light"
+    validated["theme"] = config.get("theme", "dark") if config.get("theme") in ("light", "dark") else "dark"
     validated["popup_position"] = config.get("popup_position", "center")
     validated["warm_tip_count"] = max(10, min(500, int(config.get("warm_tip_count", 100))))
     validated["widget_size"] = max(60, min(200, int(config.get("widget_size", 100))))
