@@ -371,9 +371,10 @@ class FloatingWidget(QWidget):
                 if self._click_count == 1:
                     self._click_timer.start(250)  # 250ms内如果没有第二次点击，则认为是单击
             event.accept()
-        elif event.button() == Qt.RightButton:
-            # 右键显示菜单
-            self.contextMenuEvent(event)
+        # 右键菜单不在这里手动调用 contextMenuEvent：
+        # 窗口的 contextMenuPolicy 是默认值 DefaultContextMenu，Qt 在右键释放时会
+        # 自动派发 ContextMenuEvent 并调用 contextMenuEvent()。
+        # 这里再调一次会叠出第二个菜单，表现就是「点屏幕其他地方菜单关不掉」。
     
 
     
