@@ -4,10 +4,11 @@
 import logging
 
 from PyQt5.QtWidgets import QWidget, QPushButton, QApplication, QDesktopWidget
-from PyQt5.QtCore import Qt, QTimer, QRect, pyqtSignal
-from PyQt5.QtGui import QColor, QPainter, QFont, QLinearGradient, QBrush
+from PyQt5.QtCore import Qt, QTimer, QRect, QRectF, pyqtSignal
+from PyQt5.QtGui import QColor, QPainter, QFont, QLinearGradient, QBrush, QPen
 
 from constants import FONT_EMOJI, FONT_UI
+# 弹窗按钮不用 PillButton（半透明 Tool 窗口上自绘会 native crash，见 _create_buttons 注释）
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class ReminderPopup(QWidget):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(350, 160)
+        self.setFixedSize(380, 172)
 
         # 定位（添加偏移量避免重叠）
         screen = QApplication.primaryScreen().geometry()
@@ -82,42 +83,73 @@ class ReminderPopup(QWidget):
         self._create_buttons()
 
     def _create_buttons(self):
-        """创建贪睡和关闭按钮
+        """创建贪睡和关闭按钮（QSS 玻璃质感胶囊，底部右对齐）
 
         「知道了」始终创建 —— 否则用户无法确认提醒，completed 统计也永远记不到。
         间隔小于 5 分钟时贪睡（延迟 5 分钟）没有意义，只隐藏贪睡按钮。
+
+        ⚠️ 弹窗按钮必须用 QPushButton + QSS（带 1px 实色边框保证圆角生效），
+        不能用 PillButton——PillButton 在半透明 Tool 窗口上绘制会 native crash
+        （设置面板 QDialog 上正常，仅弹窗上下文崩，真机实测）。
         """
-        btn_style = """
+        glass_style = """
             QPushButton {
-                background: rgba(255,255,255,0.25);
-                color: white;
-                border: 1px solid rgba(255,255,255,0.4);
-                border-radius: 12px;
-                font-size: 11px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(255,255,255,52), stop:1 rgba(255,255,255,16));
+                color: #F5F3FC;
+                border: 1px solid rgba(255,255,255,88);
+                border-radius: 17px;
+                font-size: 13px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background: rgba(255,255,255,0.4);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(255,255,255,72), stop:1 rgba(255,255,255,30));
+                border: 1px solid rgba(255,255,255,120);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(255,255,255,40), stop:1 rgba(255,255,255,12));
             }
         """
-        btn_y = self.height() - 40
+        tint_style = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(150,110,250,190), stop:1 rgba(45,212,191,150));
+                color: #FFFFFF;
+                border: 1px solid rgba(255,255,255,100);
+                border-radius: 17px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(160,125,255,215), stop:1 rgba(60,220,200,180));
+                border: 1px solid rgba(255,255,255,130);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(130,90,235,200), stop:1 rgba(35,190,170,160));
+            }
+        """
+        btn_y = 84
+        # 知道了：彩色玻璃主按钮，右对齐
+        self.close_btn = QPushButton("✓  知道了", self)
+        self.close_btn.setGeometry(self.width() - 20 - 106, btn_y, 106, 34)
+        self.close_btn.setStyleSheet(tint_style)
+        self.close_btn.setCursor(Qt.PointingHandCursor)
+        self.close_btn.clicked.connect(self.acknowledge)
 
-        # 贪睡按钮
+        # 贪睡按钮（白色玻璃次级）
         if self.interval >= 5:
-            self.snooze_btn = QPushButton("💤 延迟 5 分钟", self)
-            self.snooze_btn.setGeometry(self.width() - 180, btn_y, 120, 32)
-            self.snooze_btn.setStyleSheet(btn_style)
+            self.snooze_btn = QPushButton("💤  延迟 5 分钟", self)
+            self.snooze_btn.setGeometry(self.width() - 20 - 106 - 10 - 148, btn_y, 148, 34)
+            self.snooze_btn.setStyleSheet(glass_style)
+            self.snooze_btn.setCursor(Qt.PointingHandCursor)
             self.snooze_btn.clicked.connect(self.snooze)
-            close_x = self.width() - 310
         else:
             self.snooze_btn = None
-            close_x = (self.width() - 100) // 2  # 没有贪睡按钮时居中显示
-
-        # 关闭按钮
-        self.close_btn = QPushButton("✓ 知道了", self)
-        self.close_btn.setGeometry(close_x, btn_y, 100, 32)
-        self.close_btn.setStyleSheet(btn_style)
-        self.close_btn.clicked.connect(self.acknowledge)
+            self.close_btn.move((self.width() - 106) // 2, btn_y)
 
     def acknowledge(self):
         """用户确认提醒（完成）"""
@@ -161,43 +193,55 @@ class ReminderPopup(QWidget):
         self.update()
 
     def paintEvent(self, event):
-        """绘制弹窗"""
+        """绘制弹窗：深色玻璃卡片 + 主题色点缀（左竖条/图标方块/进度条）"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
 
         # 阴影
-        shadow = QColor(0, 0, 0, 60)
-        painter.setBrush(QBrush(shadow))
+        painter.setBrush(QColor(0, 0, 0, 70))
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(8, 8, self.width() - 8, self.height() - 8, 24, 24)
+        painter.drawRoundedRect(6, 8, w - 4, h - 4, 22, 22)
 
-        # 渐变背景
-        gradient = QLinearGradient(0, 0, self.width(), self.height())
-        gradient.setColorAt(0, QColor(*self.color, 230))
-        gradient.setColorAt(1, QColor(*self.color, 200))
+        # 卡片底：深色玻璃渐变（与设置面板同视觉语言）+ 高光描边
+        card = QRectF(0, 0, w - 8, h - 8)
+        gradient = QLinearGradient(0, 0, 0, card.height())
+        gradient.setColorAt(0, QColor(38, 33, 74))
+        gradient.setColorAt(1, QColor(20, 24, 48))
         painter.setBrush(QBrush(gradient))
-        painter.drawRoundedRect(0, 0, self.width() - 8, self.height() - 8, 24, 24)
+        painter.setPen(QPen(QColor(255, 255, 255, 26), 1))
+        painter.drawRoundedRect(card, 20, 20)
 
-        # 大图标
-        painter.setPen(QColor(255, 255, 255, 80))
-        painter.setFont(QFont(FONT_EMOJI, 45))
+        accent = QColor(*self.color)
+
+        # 左侧强调色竖条
+        painter.setBrush(accent)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(0, 16, 4, card.height() - 32, 2, 2)
+
+        # 图标方块（accent tint + emoji）
+        painter.setBrush(QColor(self.color[0], self.color[1], self.color[2], 70))
+        painter.drawRoundedRect(20, 18, 46, 46, 13, 13)
+        painter.setPen(QColor(255, 255, 255, 235))
+        painter.setFont(QFont(FONT_EMOJI, 22))
         icon = self.message[0] if len(self.message) > 0 else "🔔"
-        painter.drawText(25, 40, 70, 70, Qt.AlignCenter, icon)
+        painter.drawText(QRect(20, 18, 46, 46), Qt.AlignCenter, icon)
 
-        # 提醒文字
-        painter.setPen(QColor(255, 255, 255))
+        # 提醒文字（白色粗体，两行内）
+        painter.setPen(QColor(245, 243, 252))
         painter.setFont(QFont(FONT_UI, 14, QFont.Bold))
         text = self.message[2:] if len(self.message) > 2 else self.message
-        painter.drawText(105, 25, self.width() - 130, 70, Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap, text)
+        painter.drawText(QRect(82, 14, w - 104, 54),
+                         Qt.AlignLeft | Qt.AlignVCenter | Qt.TextWordWrap, text)
 
-        # 底部进度条
+        # 底部进度条（轨道白 12% + accent 填充）
         progress = min(1.0, self.elapsed_time / self.total_time)
-        bar_y = self.height() - 12
-        bar_width = self.width() - 30
-        painter.setBrush(QColor(255, 255, 255, 40))
+        bar_y = h - 26
+        bar_width = w - 48
+        painter.setBrush(QColor(255, 255, 255, 30))
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(15, bar_y, bar_width, 4, 2, 2)
-        painter.setBrush(QColor(255, 255, 255, 150))
-        painter.drawRoundedRect(15, bar_y, int(bar_width * progress), 4, 2, 2)
+        painter.drawRoundedRect(20, bar_y, bar_width, 4, 2, 2)
+        painter.setBrush(accent)
+        painter.drawRoundedRect(20, bar_y, int(bar_width * progress), 4, 2, 2)
 
         painter.end()
