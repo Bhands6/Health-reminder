@@ -13,16 +13,12 @@
 |:---:|:---:|
 | ![](docs/screenshots/01-widget-mini.png) | ![](docs/screenshots/02-widget-ring.png) |
 | 单击悬浮窗，满屏祝福 | 单击悬浮球，爱心祝福 |
-| ![](docs/screenshots/03-warm-tips-heart.jpg) | ![](docs/screenshots/04-warm-tips-scatter.jpg) |
+| ![](docs/screenshots/04-warm-tips-scatter.jpg) |  ![](docs/screenshots/03-warm-tips-heart.jpg)|
 
 
 
-| **深色卡片式设置面板** | **提醒弹窗** |
-| ![](docs/screenshots/05-settings-panel.png) | ![](docs/screenshots/06-popup-reminder.png) |
-
-<p align="center">
-  <img src="docs/screenshots/07-context-menu.png" width="180" alt="右键菜单">
-</p>
+| **深色卡片式设置面板** | **提醒弹窗** | **右键菜单** |
+| <img src="docs/screenshots/05-settings-panel.png" width="200"/> | <img src="docs/screenshots/06-popup-reminder.png" width="200"/> | <img src="docs/screenshots/07-context-menu.png" width="120"/> |
 
 
 ## 功能特性
