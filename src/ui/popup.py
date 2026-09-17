@@ -217,7 +217,7 @@ class ReminderPopup(QWidget):
         # 左侧强调色竖条
         painter.setBrush(accent)
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(0, 16, 4, card.height() - 32, 2, 2)
+        painter.drawRoundedRect(0, 16, 4, int(card.height() - 32), 2, 2)
 
         # 图标方块（accent tint + emoji）
         painter.setBrush(QColor(self.color[0], self.color[1], self.color[2], 70))
