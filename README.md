@@ -245,4 +245,4 @@ pyinstaller 健康提醒.spec
 
 **Bhands** · V 3.2
 
-GitHub: [Bhands6/Health-reminder](https://github.com/Bhands6/Health-reminder)
+下载: [Health-reminder](https://github.com/Bhands6/Health-reminder/releases/download/V3.2/health-reminder.exe)
