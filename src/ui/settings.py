@@ -561,7 +561,7 @@ class SettingsDialog(QDialog):
         main_layout.addLayout(bottom)
 
         # 作者和版本号
-        footer_label = QLabel("Bhands · V3.0")
+        footer_label = QLabel("Bhands · V3.2")
         footer_label.setObjectName("footerLabel")
         footer_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(footer_label)
