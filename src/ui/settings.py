@@ -118,9 +118,19 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         }
         QPushButton#stepperBtn:hover { background: %(host_btn_h)s; }
         QPushButton#stepperBtn:pressed { background: %(host_btn_h)s; }
-        QLabel#stepperValue {
+        QLabel#stepperEdit, QLabel#stepperValue {
             color: %(stepper_text)s; font-size: 13px;
             background: transparent; border: none;
+        }
+        QLineEdit#stepperEdit {
+            background: transparent; color: %(stepper_text)s;
+            border: none; border-radius: 8px;
+            font-size: 13px; padding: 2px 0;
+        }
+        QLineEdit#stepperEdit:focus { background: %(host_btn_h)s; }
+        QLabel#stepperUnit {
+            color: %(stepper_text)s; font-size: 11px;
+            background: transparent; border: none; padding: 0;
         }
 
         /* ---- 分组标题（卡片外灰字）---- */
@@ -668,7 +678,7 @@ class SettingsDialog(QDialog):
             self.custom_spins.append(spin)
             row_lay.addWidget(spin)
 
-            edit_btn = PillButton("✏", kind="muted", radius=10)
+            edit_btn = PillButton("✎", kind="muted", radius=10)
             edit_btn.setFixedSize(34, 34)
             edit_btn.setToolTip("编辑")
             edit_btn.clicked.connect(lambda _, x=i: self._edit_custom(x))

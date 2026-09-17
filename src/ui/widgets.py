@@ -3,13 +3,14 @@
 
 import time
 
-from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QLabel, QPushButton, QHBoxLayout, QLineEdit
 from PyQt5.QtCore import (
     Qt, QPropertyAnimation, QEasingCurve, pyqtProperty, pyqtSignal,
     QObject, QEvent, QSize, QRectF,
 )
 from PyQt5.QtGui import (
     QColor, QPainter, QBrush, QPen, QFont, QRadialGradient, QLinearGradient,
+    QIntValidator,
 )
 
 from constants import THEME, FONT_UI, FONT_EMOJI
@@ -172,6 +173,7 @@ class PillButton(QPushButton):
 class Stepper(QWidget):
     """水平步进器：「− 值 单位 +」胶囊（设置面板设计稿样式）
 
+    中间值可直接点击编辑（纯数字，回车/失焦提交并 clamp 到范围）。
     接口对齐 QSpinBox 常用子集：value/setValue/setRange，
     并提供 editingFinished 信号兼容原 spin.editingFinished 的自动收集逻辑。
     """
@@ -192,20 +194,42 @@ class Stepper(QWidget):
         self.minus_btn = PillButton("−", kind="muted", radius=12)
         self.minus_btn.setFixedSize(24, 24)
         self.minus_btn.clicked.connect(lambda: self.setValue(self._value - 1))
-        self.value_label = QLabel()
-        self.value_label.setObjectName("stepperValue")
-        self.value_label.setAlignment(Qt.AlignCenter)
-        self.value_label.setFixedWidth(64)
+        # 中间值可点击直接编辑：纯数字输入框 + 单位小字（回车/失焦提交）
+        self.value_edit = QLineEdit(str(self._value))
+        self.value_edit.setObjectName("stepperEdit")
+        self.value_edit.setAlignment(Qt.AlignCenter)
+        self.value_edit.setFrame(False)
+        self.value_edit.setFixedWidth(44)
+        self.value_edit.setValidator(QIntValidator(minimum, maximum, self))
+        self.value_edit.editingFinished.connect(self._commit_edit)
+        self.unit_label = QLabel(suffix.strip())
+        self.unit_label.setObjectName("stepperUnit")
         self.plus_btn = PillButton("+", kind="muted", radius=12)
         self.plus_btn.setFixedSize(24, 24)
         self.plus_btn.clicked.connect(lambda: self.setValue(self._value + 1))
         lay.addWidget(self.minus_btn)
-        lay.addWidget(self.value_label)
+        lay.addWidget(self.value_edit)
+        lay.addWidget(self.unit_label)
         lay.addWidget(self.plus_btn)
         self._sync()
 
+    def _commit_edit(self):
+        """编辑框提交：解析数字并 clamp；值未变时也补发 editingFinished（对齐 QSpinBox）"""
+        text = self.value_edit.text().strip()
+        for token in ("分钟", "min"):
+            text = text.replace(token, "")
+        try:
+            v = int(text)
+        except ValueError:
+            v = self._value
+        changed = max(self._min, min(self._max, v)) != self._value
+        self.setValue(v)
+        if not changed:
+            self.editingFinished.emit()
+        self._sync()  # 非法输入时把编辑框回写为当前值（避免残留乱文本）
+
     def _sync(self):
-        self.value_label.setText(f"{self._value}{self._suffix}")
+        self.value_edit.setText(str(self._value))
 
     def value(self):
         return self._value
