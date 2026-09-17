@@ -9,18 +9,17 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 界面预览
-
-**单击悬浮球，祝福语按爱心形状铺满全屏** 💝
-
-<p align="center">
-  <img src="docs/screenshots/03-warm-tips-heart.jpg" width="80%" alt="爱心祝福弹幕">
-</p>
-
 | 悬浮窗 · 倒计时进度 | 迷你悬浮球 · 进度环 |
 |:---:|:---:|
 | ![](docs/screenshots/01-widget-mini.png) | ![](docs/screenshots/02-widget-ring.png) |
+| 单击悬浮窗，满屏祝福 | 单击悬浮球，爱心祝福 |
+| ![](docs/screenshots/03-warm-tips-heart.jpg) | ![](docs/screenshots/04-warm-tips-scatter.jpg) |
+
+
+
 | **深色卡片式设置面板** | **提醒弹窗** |
-| ![](docs/screenshots/05-settings-panel.png) | ![](docs/screenshots/06-popup-reminder.png) |
+| ![](docs/screenshots/05-settings-panel.png) | ![](docs/screenshots/06-popup-reminder.png) (docs/screenshots/07-context-menu.png)|
+
 
 ## 功能特性
 
@@ -48,9 +47,7 @@
 | **拖拽** | 移动悬浮球位置 |
 | **滚轮** | 调整悬浮球大小（迷你模式） |
 
-<p align="center">
-  <img src="docs/screenshots/07-context-menu.png" width="180" alt="右键菜单">
-</p>
+
 
 ### 🔔 弹窗提醒
 
