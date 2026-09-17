@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QColorDialog, QComboBox, QMessageBox, QWidget,
 )
 from PyQt5.QtWidgets import QGraphicsBlurEffect
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QColor, QFont, QPixmap, QIcon, QPainter
 
 from constants import (
@@ -21,6 +21,7 @@ from constants import (
 from utils import save_config, set_autostart
 from constants import apply_theme, apply_gradient_colors
 from ui.widgets import ToggleSwitch
+from ui.glass import draw_glass_panel
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ _DIALOG_COLORS = {
         "input_bg": "rgba(200,180,255,0.1)", "input_bg_h": "rgba(200,180,255,0.15)",
         "border": "rgba(200,180,255,0.2)", "border_h": "rgba(200,180,255,0.5)",
         "spin_btn": "rgba(200,180,255,0.15)", "spin_btn_h": "rgba(200,180,255,0.3)",
-        "grp_bg": "stop:0 rgba(200,180,255,0.08), stop:0.5 rgba(200,180,255,0.12), stop:1 rgba(200,180,255,0.15)",
-        "grp_border": "rgba(200,180,255,0.12)", "grp_title": "rgba(200,180,255,0.95)",
+        "grp_bg": "stop:0 rgba(255,255,255,0.11), stop:0.5 rgba(255,255,255,0.06), stop:1 rgba(255,255,255,0.10)",
+        "grp_border": "rgba(255,255,255,0.24)", "grp_title": "rgba(255,255,255,0.96)",
         "scroll_bg": "rgba(200,180,255,0.05)", "scroll_h": "rgba(200,180,255,0.2)",
         "scroll_hh": "rgba(200,180,255,0.35)",
         "tooltip_bg": "rgba(30,30,50,230)", "tooltip_border": "rgba(200,180,255,0.3)",
@@ -45,8 +46,8 @@ _DIALOG_COLORS = {
         "input_bg": "rgba(200,200,220,0.06)", "input_bg_h": "rgba(200,200,220,0.1)",
         "border": "rgba(200,200,220,0.12)", "border_h": "rgba(200,200,220,0.3)",
         "spin_btn": "rgba(200,200,220,0.08)", "spin_btn_h": "rgba(200,200,220,0.15)",
-        "grp_bg": "stop:0 rgba(200,200,220,0.04), stop:0.5 rgba(200,200,220,0.06), stop:1 rgba(200,200,220,0.08)",
-        "grp_border": "rgba(200,200,220,0.08)", "grp_title": "rgba(180,180,200,0.9)",
+        "grp_bg": "stop:0 rgba(255,255,255,0.08), stop:0.5 rgba(255,255,255,0.04), stop:1 rgba(255,255,255,0.07)",
+        "grp_border": "rgba(255,255,255,0.20)", "grp_title": "rgba(255,255,255,0.92)",
         "scroll_bg": "rgba(200,200,220,0.03)", "scroll_h": "rgba(200,200,220,0.12)",
         "scroll_hh": "rgba(200,200,220,0.22)",
         "tooltip_bg": "rgba(15,15,22,240)", "tooltip_border": "rgba(200,200,220,0.15)",
@@ -55,18 +56,16 @@ _DIALOG_COLORS = {
 
 
 def _row_style():
-    if THEME.get("bg_start", (102, 126, 234))[0] < 50:
-        return """
-            background: rgba(180,180,220,0.12);
-            border: 1px solid rgba(200,200,220,0.1);
-            border-radius: 10px; padding: 8px 12px;
-        """
-    else:
-        return """
-            background: rgba(200,180,255,0.12);
-            border: 1px solid rgba(200,180,255,0.15);
-            border-radius: 10px; padding: 8px 12px;
-        """
+    """设置行：玻璃感的半透明白底 + 一道细的白色高光边
+
+    底色统一用白而不是跟随主题 —— 无论浅色还是深色玻璃，
+    「透亮的白边 + 极淡白底」都是玻璃质感的来源。
+    """
+    return """
+        background: rgba(255,255,255,0.09);
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 10px; padding: 8px 12px;
+    """
 
 
 def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
@@ -74,20 +73,15 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
     p = THEME.get("primary", (102, 126, 234))
     s = THEME.get("secondary", (118, 75, 162))
     if theme_name == "dark":
-        bg_grad = c["bg"]
         bpr, bpy, bpb = 40, 40, 55
         bsr, bsy, bsb = 35, 35, 50
     else:
         bpr, bpy, bpb = p[0], p[1], p[2]
         bsr, bsy, bsb = s[0], s[1], s[2]
-        def _dim(v, factor=0.35):
-            return max(10, int(v * factor))
-        bg_grad = (f"stop:0 rgb({_dim(p[0])},{_dim(p[1])},{_dim(p[2])}), "
-                   f"stop:0.4 rgb({_dim(p[0],0.45)},{_dim(p[1],0.45)},{_dim(p[2],0.45)}), "
-                   f"stop:0.7 rgb({_dim(p[0])},{_dim(p[1])},{_dim(p[2])}), "
-                   f"stop:1 rgb({_dim(s[0])},{_dim(s[1])},{_dim(s[2])})")
     return """
-        QDialog { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, %(bg)s); }
+        /* 玻璃底板由 SettingsDialog.paintEvent 手绘：
+           QSS 只能表达单层背景色，画不出边缘高光与内侧柔光 */
+        QDialog { background: transparent; }
         QLabel { color: %(text)s; font-size: 13px; }
         QSpinBox {
             background: %(input_bg)s; color: %(text_full)s;
@@ -176,7 +170,6 @@ def _build_dialog_style(theme_name, check_path, arrow_up_path, arrow_down_path):
         }
     """ % {
         **c,
-        "bg": bg_grad,
         "check": check_path,
         "arrow_up": arrow_up_path,
         "arrow_down": arrow_down_path,
@@ -320,6 +313,8 @@ class SettingsDialog(QDialog):
     def __init__(self, config, parent=None):
         super().__init__(parent)
         self.setWindowTitle("设置")
+        # 让内容区能透出桌面，玻璃底板由 paintEvent 手绘
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(400, 500)
         self.resize(500, 800)
         # 深拷贝，保证「取消」时外部配置与全局主题都不受影响
@@ -636,6 +631,17 @@ class SettingsDialog(QDialog):
             self._auto_save()
             return
         super().keyPressEvent(event)
+
+    def paintEvent(self, event):
+        """手绘玻璃底板
+
+        QSS 只能表达单层背景色，画不出玻璃的边缘高光与内侧柔光，所以底板在这里手绘，
+        QSS 中 QDialog 的背景设为 transparent（子控件仍由 QSS 负责）。
+        """
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        panel = QRectF(self.rect()).adjusted(7, 7, -7, -7)
+        draw_glass_panel(painter, panel, radius=16)
 
     def _apply_style(self):
         theme = self.config.get("theme", "light")
