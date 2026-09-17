@@ -40,7 +40,7 @@ _ACCENT_GRAY = (148, 163, 184)    # 关闭态行的中性强调
 
 _DIALOG_COLORS = {
     "light": {
-        "bg": "stop:0 #F4F1FE, stop:0.35 #EEF3FF, stop:0.7 #F2EFFE, stop:1 #E9F7F5",
+        "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
         "text": "rgba(62,54,110,0.85)", "text_full": "#2F2A56",
         "row_bg": "rgba(255,255,255,0.72)", "row_bg_h": "rgba(255,255,255,0.95)",
         "row_border": "rgba(80,70,150,0.10)",
@@ -57,7 +57,7 @@ _DIALOG_COLORS = {
         "tooltip_text": "#2F2A56",
     },
     "dark": {
-        "bg": "stop:0 #1A1538, stop:0.35 #211B4E, stop:0.7 #182045, stop:1 #10263F",
+        "bg": "stop:0 #1a1a2e, stop:0.3 #16213e, stop:0.6 #0f3460, stop:1 #533483",
         "text": "rgba(226,222,245,0.85)", "text_full": "#EFEDFB",
         "row_bg": "rgba(255,255,255,0.085)", "row_bg_h": "rgba(255,255,255,0.13)",
         "row_border": "rgba(255,255,255,0.07)",
