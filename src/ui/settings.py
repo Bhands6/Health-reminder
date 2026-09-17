@@ -550,10 +550,10 @@ class SettingsDialog(QDialog):
         # 底部按钮：取消（左，次级）/ 保存（右，渐变主按钮），等宽
         bottom = QHBoxLayout()
         bottom.setSpacing(12)
-        cancel_btn = PillButton("取消", kind="muted", radius=21)
+        cancel_btn = PillButton("取消", kind="glass", radius=21)
         cancel_btn.setMinimumHeight(44)
         cancel_btn.clicked.connect(self.reject)
-        save_btn = PillButton("保存", kind="primary", radius=21)
+        save_btn = PillButton("保存", kind="glass_tint", radius=21)
         save_btn.setMinimumHeight(44)
         save_btn.clicked.connect(self.save)
         bottom.addWidget(cancel_btn, 1)

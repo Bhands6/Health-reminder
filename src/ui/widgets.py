@@ -142,6 +142,27 @@ class PillButton(QPushButton):
                 g.setColorAt(1, QColor(45, 212, 191))
             p.setBrush(QBrush(g))
             p.setPen(Qt.NoPen)
+        elif self._kind == "glass_tint":
+            # 彩色毛玻璃：紫→青半透明垂直渐变 + 高光描边（hover 提亮）
+            a = 200 if self._pressed else (175 if self._hover else 140)
+            g = QLinearGradient(0, 0, 0, self.height())
+            g.setColorAt(0, QColor(150, 110, 250, min(255, a + 20)))
+            g.setColorAt(1, QColor(45, 212, 191, a))
+            p.setBrush(QBrush(g))
+            p.setPen(QPen(QColor(255, 255, 255, 90 if self._hover else 62), 1.2))
+        elif self._kind == "glass":
+            # 白系毛玻璃：顶部亮底部暗的垂直渐变（模拟玻璃反光）+ 高光描边
+            if self._pressed:
+                top, bottom, border = 62, 26, 105
+            elif self._hover:
+                top, bottom, border = 52, 20, 92
+            else:
+                top, bottom, border = 40, 14, 72
+            g = QLinearGradient(0, 0, 0, self.height())
+            g.setColorAt(0, QColor(255, 255, 255, top))
+            g.setColorAt(1, QColor(255, 255, 255, bottom))
+            p.setBrush(QBrush(g))
+            p.setPen(QPen(QColor(255, 255, 255, border), 1.2))
         elif self._kind == "danger":
             p.setBrush(QColor(244, 67, 54, 150 if (self._hover or self._pressed) else 80))
             p.setPen(Qt.NoPen)
