@@ -102,10 +102,11 @@ class WarmTipController(QWidget):
 
         self.setFixedSize(400, 200)
 
-        # 屏幕上方居中显示
+        # 默认位置：屏幕横向 45%、纵向 34% 处（2560x1440 下约为 (1152, 489)）
+        # 用比例而不是绝对值，换分辨率时位置依旧合理；仍可用鼠标拖动临时挪动
         screen = QApplication.primaryScreen().geometry()
-        x = (screen.width() - self.width()) // 2
-        y = 200  # 距离顶部200像素
+        x = int(screen.width() * 0.45)
+        y = int(screen.height() * 0.34)
         self.move(x, y)
 
         self.tips_window = []
