@@ -19,7 +19,7 @@
 
 <table>
   <tr>
-    <td rowspan="2" align="center"><img src="docs/screenshots/05-settings-panel.png" width="325"/><br><b>深色卡片式设置面板</b></td>
+    <td rowspan="2" align="center"><img src="docs/screenshots/05-settings-panel.png" width="350"/><br><b>深色卡片式设置面板</b></td>
     <td align="center"><img src="docs/screenshots/06-popup-reminder.png" width="420"/><br><b>提醒弹窗</b></td>
   </tr>
   <tr>
